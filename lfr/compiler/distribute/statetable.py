@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Optional, Union
+
+from lfr.fig.fignode import FIGNode
+
+if TYPE_CHECKING:
+    from lfr.fig.fluidinteractiongraph import FluidInteractionGraph
+
 from typing import Dict, List, Tuple
 
 import networkx as nx
@@ -7,8 +14,13 @@ import numpy as np
 from tabulate import tabulate
 
 from lfr.compiler.distribute.BitVector import BitVector
-from lfr.fig.fignode import ANDAnnotation, NOTAnnotation, ORAnnotation
-from lfr.fig.fluidinteractiongraph import FluidInteractionGraph
+from lfr.fig.annotation import (
+    ANDAnnotation,
+    DistributeAnnotation,
+    NOTAnnotation,
+    ORAnnotation,
+)
+from lfr.utils import convert_list_to_str
 
 
 class StateTable:
@@ -19,9 +31,10 @@ class StateTable:
         # state table into flow annotations using z3
         self._connectivity_states: Dict[BitVector, nx.DiGraph] = {}
         # self._colored_graph: nx.DiGraph = None
-        self._connectivity_matrix = None
-        self._connectivity_column_headers = None
-        self._connectivity_edges = {}
+        self._connectivity_matrix = np.zeros((1, 1))
+        self._control_matrix = np.zeros((1, 1))
+        self._connectivity_column_headers: List[str] = []
+        self._connectivity_edges: Dict[str, Tuple[str, str]] = {}
         self._and_annotations: List[ANDAnnotation] = []
         self._or_annotations: List[ORAnnotation] = []
         self._not_annotations: List[NOTAnnotation] = []
@@ -40,7 +53,7 @@ class StateTable:
         return edge
 
     def convert_to_fullstate_vector(
-        self, signal_list: List[str], state: BitVector
+        self, signal_list: List[str], state: List[bool]
     ) -> BitVector:
         # Go through the each of the signal and update the specific BitVector value
         full_state_bitvector = BitVector(size=len(self._headers))
@@ -62,17 +75,15 @@ class StateTable:
         # Add source and target if they are not present
         if source not in list(digraph.nodes):
             print(
-                "Could not find source - {} in state table connectivity graph, adding node".format(
-                    source
-                )
+                "Could not find source - {} in state table connectivity graph, adding"
+                " node".format(source)
             )
             digraph.add_node(source)
 
         if target not in list(digraph.nodes):
             print(
-                "Could not find target - {} in state table connectivity graph, adding node".format(
-                    target
-                )
+                "Could not find target - {} in state table connectivity graph, adding"
+                " node".format(target)
             )
             digraph.add_node(target)
 
@@ -81,8 +92,7 @@ class StateTable:
         digraph.add_edge(source, target)
 
     def generate_connectivity_table(self) -> None:
-
-        connectivy_column_headers = []
+        connectivy_column_headers: List[str] = []
         self._connectivity_column_headers = connectivy_column_headers
         # First setup the dimensions for the matrix
         row_size = len(self._connectivity_states.keys())
@@ -100,19 +110,24 @@ class StateTable:
         column_size = len(list(full_connectivity_graph.edges))
 
         for edge in list(full_connectivity_graph.edges):
-            edge_name = self.__convert_edge_to_name(edge)
+            edge_name = self.convert_edge_to_name(edge)
             connectivy_column_headers.append(edge_name)
             self._connectivity_edges[edge_name] = edge
 
         self._connectivity_matrix = np.zeros((row_size, column_size), dtype=int)
+        self._control_matrix = np.zeros((row_size, len(self._headers)), dtype=int)
 
+        # Actually fill out the matrices now
         i = 0
         for state in self._connectivity_states:
             graph = self._connectivity_states[state]
             for edge in list(graph.edges):
                 self.__update_connectivity_matix(edge, i, 1)
+                self.__update_control_matrix(i, state)
 
             i += 1
+
+        # TODO - Generate the full connectivity table with mapping options
 
     def generate_and_annotations(self, fig: FluidInteractionGraph) -> None:
         m = self._connectivity_matrix
@@ -179,14 +194,22 @@ class StateTable:
                     )
                 fig.connect_fignodes(source_node, target_node)
 
-            origin_nodes = [fig.get_fignode(edge[0]) for edge in candidate]
-            print("Added AND annotation on FIG: {}".format(str(origin_nodes)))
-            assert origin_nodes is not None
-            annotation = fig.add_and_annotation(origin_nodes)
+            # origin_nodes = [fig.get_fignode(edge[0]) for edge in candidate]
+            tuple_names = [self.convert_edge_to_name(edge) for edge in candidate]
+            print(
+                "Added AND annotation on FIG: {}".format(
+                    convert_list_to_str(tuple_names)
+                )
+            )
+
+            fignode_tuples = [
+                (fig.get_fignode(edge[0]), fig.get_fignode(edge[1]))
+                for edge in candidate
+            ]
+            annotation = fig.add_and_annotation(fignode_tuples)
             self._and_annotations.append(annotation)
 
     def generate_or_annotations(self, fig: FluidInteractionGraph) -> None:
-
         self.print_connectivity_table()
         m = np.copy(self._connectivity_matrix)
         # Zerofill SKIPPED COLUMS
@@ -221,7 +244,7 @@ class StateTable:
                 # TODO - Go through the rows, see if the row-i and row-j
                 # compute the XOR of the current vector with the accumulate
                 xord_vector = np.logical_xor(accumulate_vector, row_j)
-                distance = self.__hamming_distance(xord_vector, accumulate_vector)
+                distance = self.hamming_distance(xord_vector, accumulate_vector)
                 count = self.__ones_count(xord_vector)
 
                 if distance == 1 and count == ones_count + 1:
@@ -246,7 +269,9 @@ class StateTable:
         # else (is not present in AND annotation) pick up the positive's corresponding
         # flow node as one of the targets for the or annotation
         for candidate in all_candidates:
-            args_for_annotation = []
+            args_for_annotation: List[
+                Union[Tuple[FIGNode, FIGNode], DistributeAnnotation]
+            ] = []
             for row_index in candidate:
                 row = m[row_index, :]
                 for i in range(len(row)):
@@ -268,22 +293,26 @@ class StateTable:
                         # Add the connection target in inot the annotion targets we want
                         # this representated for the entire converage
                         target = edge[1]
-                        args_for_annotation.append(fig.get_fignode(target))
                         # Check if the source is in any of the AND annotations
                         source = edge[0]
                         found_flag = False
                         annotation_to_use = None
                         for annotation in self._and_annotations:
-                            if source in fig.neighbors(annotation.id):
-                                found_flag = True
-                                annotation_to_use = fig.get_fignode(annotation.id)
+                            if source in annotation.get_items():
+                                annotation_to_use = annotation
                                 break
-                        if found_flag is True:
+                        if annotation_to_use is not None:
                             if annotation_to_use not in args_for_annotation:
                                 args_for_annotation.append(annotation_to_use)
                         else:
-                            if source not in args_for_annotation:
-                                args_for_annotation.append(fig.get_fignode(source))
+                            source_fignode = fig.get_fignode(source)
+                            target_fignode = fig.get_fignode(target)
+                            if (
+                                source_fignode in args_for_annotation
+                                and target_fignode in args_for_annotation
+                            ) is False:
+                                item_to_add = (source_fignode, target_fignode)
+                                args_for_annotation.append(item_to_add)
 
             self._or_annotations.append(fig.add_or_annotation(args_for_annotation))
 
@@ -304,11 +333,15 @@ class StateTable:
                     )
                 )
                 fig.connect_fignodes(source_node, target_node)
-                annotation = fig.add_not_annotation([source_node, target_node])
+                annotation = fig.add_not_annotation((source_node, target_node))
                 self._not_annotations.append(annotation)
 
+    def compute_control_mapping(self) -> None:
+        print("TODO - Implement method to generate the control mapping")
+        # TODO - Generate the full connectivity table with mapping options
+
     @staticmethod
-    def __hamming_distance(vec1, vec2) -> int:
+    def hamming_distance(vec1, vec2) -> int:
         assert vec1.size == vec2.size
         # Start with a distance of zero, and count up
         distance = 0
@@ -331,20 +364,33 @@ class StateTable:
         return ret
 
     @staticmethod
-    def __convert_edge_to_name(edge: Tuple[str, str]) -> str:
+    def convert_edge_to_name(edge: Tuple[str, str]) -> str:
+        """Generate the name of the edge to a string for printing purposes
+
+        Args:
+            edge (Tuple[str, str]): This is the networkx edge that we want to convert
+
+        Returns:
+            str: String representation of edge for printing
+        """
         return "{}->{}".format(edge[0], edge[1])
 
     def __update_connectivity_matix(self, edge, row, value):
-        edge_name = self.__convert_edge_to_name(edge)
+        edge_name = self.convert_edge_to_name(edge)
         m = self._connectivity_matrix
         column = self._connectivity_column_headers.index(edge_name)
         m[row, column] = value
+
+    def __update_control_matrix(self, row_index: int, control_state_vector: BitVector):
+        m = self._control_matrix
+        for column_index in range(control_state_vector.length()):
+            m[row_index, column_index] = control_state_vector[column_index]
 
     def add_to_column_skip_list(self, edge: Tuple[str, str]):
         # TODO - add the column to skip edge list to
         #  prevent double count during xor finding
         edge_index = self._connectivity_column_headers.index(
-            self.__convert_edge_to_name(edge)
+            self.convert_edge_to_name(edge)
         )
         self._or_column_skip_list.append(edge_index)
 
@@ -352,4 +398,17 @@ class StateTable:
         m = self._connectivity_matrix
         headers = self._connectivity_column_headers
         table = tabulate(m, headers, tablefmt="fancy_grid")
+
+        m2 = self._control_matrix
+        control_headers = self._headers
+        table2 = tabulate(m2, control_headers, tablefmt="fancy_grid")
+
         print(table)
+        print(table2)
+
+        m3 = np.concatenate((m, m2), axis=1)
+        headers_full = headers.copy()
+        headers_full.extend(control_headers)
+        table3 = tabulate(m3, headers_full, tablefmt="fancy_grid")
+
+        print(table3)

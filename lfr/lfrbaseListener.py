@@ -1,9 +1,10 @@
 import re
 from enum import Enum
+from os import error
 from typing import List, Optional
 
-from lfr.antlrgen.lfrXListener import lfrXListener
-from lfr.antlrgen.lfrXParser import lfrXParser
+from lfr.antlrgen.lfr.lfrXListener import lfrXListener
+from lfr.antlrgen.lfr.lfrXParser import lfrXParser
 from lfr.compiler.distribute.BitVector import BitVector
 from lfr.compiler.language.concatenation import Concatenation
 from lfr.compiler.language.fluidexpression import FluidExpression
@@ -35,7 +36,6 @@ class VariableTypes(Enum):
 
 class LFRBaseListener(lfrXListener):
     def __init__(self):
-
         print("Initialized the lfrcompiler")
         self.modules = []
         self.currentModule: Optional[Module] = None
@@ -58,7 +58,7 @@ class LFRBaseListener(lfrXListener):
         # This might be the new expression stack
         self.stack = []
         self.statestack = []
-        self.binaryoperatorsstack = [[]]
+        self.binaryoperatorsstack: List[List[str]] = [[]]
 
         # TODO - Figure out how to make this more elegant
         self._lhs_store = None
@@ -85,15 +85,21 @@ class LFRBaseListener(lfrXListener):
         self.success = False
         self.vectors = {}
         self.expressionresults = None
-        self.listermode: ListenerMode = ListenerMode.NONE
-        self.lastlistenermode: ListenerMode = ListenerMode.NONE
+        self.listermode = ListenerMode.NONE
+        self.lastlistenermode = ListenerMode.NONE
 
         self.stack = []
         self.statestack = []
         self.binaryoperatorsstack = [[]]
 
     def enterIoblock(self, ctx: lfrXParser.IoblockContext):
+        if self.currentModule is None:
+            raise ValueError("currentModule set to None")
+
         # If io block has an explicit declaration set the flag
+        if self.currentModule is None:
+            raise ValueError("currentModule set to None")
+
         if ctx.explicitIOBlock() is not None:
             self.EXPLICIT_MODULE_DECLARATION = True
 
@@ -111,11 +117,14 @@ class LFRBaseListener(lfrXListener):
             self.vectors[name] = v
             self.typeMap[name] = VariableTypes.FLUID
 
-            m = ModuleIO(name)
-            m.vector_ref = v.get_range()
+            m = ModuleIO(name, IOType.FLOW_INPUT)
+            m.vector_ref = VectorRange.get_range_from_vector(v)
             self.currentModule.add_io(m)
 
     def exitExplicitIOBlock(self, ctx: lfrXParser.ExplicitIOBlockContext):
+        if self.currentModule is None:
+            raise ValueError("currentModule set to None")
+
         #  First check the type of the explicit io block
         decltype = ctx.start.text
         mode = None
@@ -166,9 +175,12 @@ class LFRBaseListener(lfrXListener):
                     for io in vec.get_items():
                         io.type = mode
 
+                    # If IOType is None
+                    if mode is None:
+                        raise ValueError("IOType is None")
                     # Create and add a ModuleIO reference
                     m = ModuleIO(name, mode)
-                    m.vector_ref = vec.get_range()
+                    m.vector_ref = VectorRange.get_range_from_vector(vec)
                     self.currentModule.add_io(m)
 
                 else:
@@ -180,6 +192,9 @@ class LFRBaseListener(lfrXListener):
                     )
 
     def enterFluiddeclstat(self, ctx: lfrXParser.FluiddeclstatContext):
+        if self.currentModule is None:
+            raise ValueError("currentModule set to None")
+
         self.__updateMode(ListenerMode.VARIABLE_DECLARATION_MODE)
         for declvar in ctx.declvar():
             name = declvar.ID().getText()
@@ -193,6 +208,8 @@ class LFRBaseListener(lfrXListener):
             v = self.__createVector(name, Flow, startindex, endindex)
 
             for item in v.get_items():
+                if self.currentModule is None:
+                    raise ValueError("currentModule set to None")
                 self.currentModule.add_fluid(item)
 
             # Now that the declaration is done, we are going to save it
@@ -203,6 +220,9 @@ class LFRBaseListener(lfrXListener):
         self.__revertMode()
 
     def enterStoragestat(self, ctx: lfrXParser.StoragestatContext):
+        if self.currentModule is None:
+            raise ValueError("currentModule set to None")
+
         self.__updateMode(ListenerMode.VARIABLE_DECLARATION_MODE)
         for declvar in ctx.declvar():
             name = declvar.ID().getText()
@@ -226,6 +246,9 @@ class LFRBaseListener(lfrXListener):
         self.__revertMode()
 
     def enterPumpvarstat(self, ctx: lfrXParser.PumpvarstatContext):
+        if self.currentModule is None:
+            raise ValueError("currentModule set to None")
+
         self.__updateMode(ListenerMode.VARIABLE_DECLARATION_MODE)
         for declvar in ctx.declvar():
             name = declvar.ID().getText()
@@ -249,6 +272,9 @@ class LFRBaseListener(lfrXListener):
         self.__revertMode()
 
     def enterSignalvarstat(self, ctx: lfrXParser.SignalvarstatContext):
+        if self.currentModule is None:
+            raise ValueError("currentModule set to None")
+
         self.__updateMode(ListenerMode.VARIABLE_DECLARATION_MODE)
         for declvar in ctx.declvar():
             name = declvar.ID().getText()
@@ -382,7 +408,8 @@ class LFRBaseListener(lfrXListener):
                 self.stack.append(output)
 
             elif ctx.number() is not None:
-                # TODO: Figure out how one needs to process the number with a unary operator
+                # TODO: Figure out how one needs to process the number with a unary
+                # operator
                 raise Exception(
                     "Implement method to evaluate number with unary operator"
                 )
@@ -421,14 +448,18 @@ class LFRBaseListener(lfrXListener):
         self.__revertMode()
         # Perform the unary operation if present
         if ctx.unary_operator() is not None:
-
             operator = ctx.unary_operator().getText()
             term = self.stack.pop()
+            if self.currentModule is None:
+                raise ValueError()
             fluidexpession = FluidExpression(self.currentModule)
             result = fluidexpession.process_unary_operation(term, operator)
             self.stack.append(result)
 
     def exitAssignstat(self, ctx: lfrXParser.AssignstatContext):
+        if self.currentModule is None:
+            raise ValueError("current module is set to None")
+
         rhs = self.stack.pop()
         lhs = self.stack.pop()
 
@@ -451,24 +482,25 @@ class LFRBaseListener(lfrXListener):
             # Make 1-1 connections
             for source, target in zip(rhs, lhs):
                 print(source, target)
-                sourceid = source.id
-                targetid = target.id
+                sourceid = source.ID
+                targetid = target.ID
 
                 self.currentModule.add_fluid_connection(sourceid, targetid)
 
         elif len(lhs) != len(rhs):
             print("LHS not equal to RHS")
             for source in rhs:
-                sourceid = source.id
+                sourceid = source.ID
 
                 for target in lhs:
-                    targetid = target.id
+                    targetid = target.ID
                     self.currentModule.add_fluid_connection(sourceid, targetid)
 
     def exitLiteralassignstat(self, ctx: lfrXParser.LiteralassignstatContext):
         rhs = self.stack.pop()
         lhs = ctx.ID().getText()
-        # TODO: Check all error conditions and if the right kinds of variables are being assigned here
+        # TODO: Check all error conditions and if the right kinds of variables are
+        # being assigned here
         # self.vectors[lhs] = rhs
 
         if self.listermode is ListenerMode.VARIABLE_DECLARATION_MODE:
@@ -498,7 +530,6 @@ class LFRBaseListener(lfrXListener):
         return v
 
     def __createLiteralVector(self, name: str, values: List) -> Vector:
-
         objectype = None
 
         if isinstance(values, list):
@@ -523,6 +554,8 @@ class LFRBaseListener(lfrXListener):
             )
         )
         # TODO: Return the vector range result of unary operator
+        if self.currentModule is None:
+            raise ValueError()
         fluidexpression = FluidExpression(self.currentModule)
         result = fluidexpression.process_unary_operation(operand, operator)
 
@@ -551,6 +584,8 @@ class LFRBaseListener(lfrXListener):
         pattern = r"(\d+)'b(\d+)"
         matches = re.search(pattern, text)
         # size = int(matches.group(1))
+        if matches is None:
+            raise error("No matches found")
         bit_pattern = matches.group(2)
         n = BitVector(bitstring=bit_pattern)
         return n

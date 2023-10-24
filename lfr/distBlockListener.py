@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 
-from lfr.antlrgen.lfrXParser import lfrXParser
+from lfr.antlrgen.lfr.lfrXParser import lfrXParser
 from lfr.compiler.distribute.BitVector import BitVector
 from lfr.compiler.distribute.distributeblock import DistributeBlock
 from lfr.compiler.language.vectorrange import VectorRange
@@ -13,7 +13,7 @@ class DistBlockListener(LFRBaseListener):
         super().__init__()
         self._current_dist_block: Optional[DistributeBlock] = None
         self._current_sensitivity_list = None
-        self._current_state: BitVector
+        self._current_state: Optional[BitVector]
         self._current_connectivities: List[Tuple[str, str]] = []
         # This particular variable is only used for
         # figuring out the else statement
@@ -24,6 +24,9 @@ class DistBlockListener(LFRBaseListener):
         rhs = self.stack.pop()
         lhs = self.stack.pop()
 
+        if isinstance(rhs, BitVector):
+            rhs = rhs.intValue()
+
         relation_operator = ctx.binary_module_path_operator().getText()
 
         # TODO - Basically we need to know what the conditions are we need to set
@@ -33,15 +36,26 @@ class DistBlockListener(LFRBaseListener):
         # this needs to be extended to work with all kinds of conditions
         # not just 1 variable and the values of 0 or 1.
         assert len(lhs) == 1
-        assert rhs == 0 or rhs == 1
-        assert relation_operator == "=="
+        if relation_operator != "==":
+            raise NotImplementedError(
+                'Did not implement distribute condition beyond "=="'
+            )
+
+        if type(rhs) == float or type(rhs) == int:
+            if (rhs == 0 or rhs == 1) is False:
+                raise NotImplementedError(
+                    "Did not implement distribute condition to be beyond simple 1 or 0"
+                    " conditions"
+                )
+
+        if self._current_dist_block is None:
+            raise ValueError('"_current_dist_block" is set to None')
 
         state_vector = self._current_dist_block.generate_state_vector([lhs], [rhs == 1])
         self._current_state = state_vector
 
     def enterDistributionBlock(self, ctx: lfrXParser.DistributionBlockContext):
         print("Entering the Distribution Block")
-        # TODO - Instantiate the distribute graph or whatever class that encapsulates this
         self._current_dist_block = DistributeBlock()
 
     def exitSensitivitylist(self, ctx: lfrXParser.SensitivitylistContext):
@@ -77,11 +91,19 @@ class DistBlockListener(LFRBaseListener):
             vrange = VectorRange(v, start_index, end_index)
             sentivity_list.append(vrange)
 
+        if self._current_dist_block is None:
+            raise ValueError('"_current_dist_block" is set to None')
+
         self._current_dist_block.sensitivity_list = sentivity_list
 
     def exitDistributionBlock(self, ctx: lfrXParser.DistributionBlockContext):
         print("Exit the Distribution Block")
         # TODO - Generate the fig from the distribute block
+        if self._current_dist_block is None:
+            raise ValueError('"_current_dist_block" is set to None')
+
+        if self.currentModule is None:
+            raise ValueError("Current module set to none")
         self._current_dist_block.generate_fig(self.currentModule.FIG)
 
     def enterDistributionassignstat(
@@ -102,18 +124,18 @@ class DistBlockListener(LFRBaseListener):
             print("LHS, RHS sizes are equal")
             for source, target in zip(rhs, lhs):
                 print(source, target)
-                sourceid = source.id
-                targetid = target.id
+                sourceid = source.ID
+                targetid = target.ID
 
                 self._current_connectivities.append((sourceid, targetid))
 
         elif len(lhs) != len(rhs):
             print("LHS not equal to RHS")
             for source in rhs:
-                sourceid = source.id
+                sourceid = source.ID
 
                 for target in lhs:
-                    targetid = target.id
+                    targetid = target.ID
                     self._current_connectivities.append((sourceid, targetid))
 
     def enterIfElseBlock(self, ctx: lfrXParser.IfElseBlockContext):
@@ -131,7 +153,12 @@ class DistBlockListener(LFRBaseListener):
     def exitIfBlock(self, ctx: lfrXParser.IfBlockContext):
         # We need to go through all the current connectivities
         # and put them into the distribute block
+        if self._current_state is None:
+            raise ValueError("No state set for if block")
         self._accumulated_states.append(self._current_state)
+        if self._current_dist_block is None:
+            raise ValueError('"_current_dist_block" is set to None')
+
         dist_block = self._current_dist_block
         for connectivity in self._current_connectivities:
             dist_block.set_connectivity(
@@ -141,7 +168,13 @@ class DistBlockListener(LFRBaseListener):
     def exitElseIfBlock(self, ctx: lfrXParser.ElseIfBlockContext):
         # We need to go through all the current connectivities
         # and put them into the distribute block
+        if self._current_state is None:
+            raise ValueError("No state set for if block")
         self._accumulated_states.append(self._current_state)
+
+        if self._current_dist_block is None:
+            raise ValueError('"_current_dist_block" is set to None')
+
         dist_block = self._current_dist_block
         for connectivity in self._current_connectivities:
             dist_block.set_connectivity(
@@ -152,6 +185,9 @@ class DistBlockListener(LFRBaseListener):
         self._current_connectivities = []
 
     def exitElseBlock(self, ctx: lfrXParser.ElseBlockContext):
+        if self._current_dist_block is None:
+            raise ValueError('"_current_dist_block" is set to None')
+
         remaining_states = self._current_dist_block.get_remaining_states(
             self._accumulated_states
         )
@@ -176,8 +212,14 @@ class DistBlockListener(LFRBaseListener):
         rhs = self.stack.pop()
         assert isinstance(rhs, BitVector)
         lhs = self._current_lhs
+
+        if self._current_dist_block is None:
+            raise ValueError('"_current_dist_block" is set to None')
+
         dist_block = self._current_dist_block
         rhs_list = [rhs[i] == 1 for i in range(len(rhs))]
+        if lhs is None:
+            raise ValueError("LHS set to none in case stat")
         state_vector = self._current_dist_block.generate_state_vector([lhs], rhs_list)
         self._current_state = state_vector
 

@@ -74,6 +74,8 @@
             "args": [
                 "--outpath",
                 "./out/",
+                "--technology",
+                "dropx",
                 "${file}"
             ],
             "console": "integratedTerminal"
@@ -87,6 +89,21 @@
                 "--no-gen",
                 "--outpath",
                 "./out/",
+                "${file}"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug - Customfile, NO GEN (with distribute library)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/lfr/cmdline.py",
+            "args": [
+                "--no-gen",
+                "--outpath",
+                "./out/",
+                "--pre-load",
+                "../LFR-Testcases/distribute-library",
                 "${file}"
             ],
             "console": "integratedTerminal"

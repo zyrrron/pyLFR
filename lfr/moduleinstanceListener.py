@@ -1,6 +1,7 @@
+from os import error
 from typing import Dict, Optional
 
-from lfr.antlrgen.lfrXParser import lfrXParser
+from lfr.antlrgen.lfr.lfrXParser import lfrXParser
 from lfr.compiler.lfrerror import ErrorType, LFRError
 from lfr.compiler.module import Module
 from lfr.distBlockListener import DistBlockListener
@@ -16,6 +17,9 @@ class ModuleInstanceListener(DistBlockListener):
     def enterModuleinstantiationstat(
         self, ctx: lfrXParser.ModuleinstantiationstatContext
     ):
+        if self.currentModule is None:
+            raise ValueError("currentModule set to None")
+
         # Check if the type exists in current compiler memory
         type_id = ctx.moduletype().getText()
         module_to_import = None
@@ -38,6 +42,9 @@ class ModuleInstanceListener(DistBlockListener):
     def exitModuleinstantiationstat(
         self, ctx: lfrXParser.ModuleinstantiationstatContext
     ):
+        if self.currentModule is None:
+            raise ValueError("currentModule set to None")
+
         # Create new instance of the import the type
         type_id = ctx.moduletype().getText()
         io_mapping = self._io_mapping
@@ -52,6 +59,8 @@ class ModuleInstanceListener(DistBlockListener):
             variables.insert(0, self.stack.pop())
 
         # now go through the different connections in the module to import
+        if self._module_to_import is None:
+            raise ValueError("No module to import here")
         module_io = self._module_to_import.io
         assert len(module_io) == num_variables
 
@@ -63,7 +72,7 @@ class ModuleInstanceListener(DistBlockListener):
             there_vector_ref = module_io[i].vector_ref
             here_vector_ref = variables[i]
             for i in range(len(there_vector_ref)):
-                self._io_mapping[there_vector_ref[i].id] = here_vector_ref[i].id
+                self._io_mapping[there_vector_ref[i].ID] = here_vector_ref[i].ID
 
     # def exitUnorderedioblock(self, ctx: lfrXParser.UnorderedioblockContext):
     #     num_variables = len(ctx.explicitinstanceiomapping())
@@ -78,11 +87,14 @@ class ModuleInstanceListener(DistBlockListener):
     def exitExplicitinstanceiomapping(
         self, ctx: lfrXParser.ExplicitinstanceiomappingContext
     ):
+        if self._module_to_import is None:
+            raise error("No module to import found in the listener store")
+
         variable = self.stack.pop()
         label = ctx.ID().getText()
 
         # Check if label exists in module_to_import
-        if label not in self._module_to_import.get_all_io():
+        if label not in [item.id for item in self._module_to_import.get_all_io()]:
             self.compilingErrors.append(
                 LFRError(
                     ErrorType.MODULE_IO_NOT_FOUND,
@@ -94,6 +106,13 @@ class ModuleInstanceListener(DistBlockListener):
             return
 
         io = self._module_to_import.get_io(label)
-        assert len(io.vector_ref) == len(variable)
+        if len(io.vector_ref) != len(variable):
+            self.compilingErrors.append(
+                LFRError(
+                    ErrorType.MODULE_SIGNAL_BINDING_MISMATCH,
+                    "Number of module instance signals and variables don't match",
+                )
+            )
+            return
         for i in range(len(variable)):
-            self._io_mapping[io.vector_ref[i].id] = variable[i].id
+            self._io_mapping[io.vector_ref[i].ID] = variable[i].ID
