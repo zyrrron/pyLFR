@@ -12,11 +12,13 @@ library = MappingLibrary("mlsi")
 
 filter_inputs: List[ConnectingOption] = []
 
-filter_inputs.append(ConnectingOption(None, ["1"]))
+for i in range(10):
+    filter_inputs.append(ConnectingOption(None, ["1"]))
 
 filter_outputs: List[ConnectingOption] = []
 
-filter_outputs.append(ConnectingOption(None, ["3"]))
+for i in range(10):
+    filter_outputs.append(ConnectingOption(None, ["3"]))
 
 filter_loadings: List[ConnectingOption] = []
 filter_carriers: List[ConnectingOption] = []
