@@ -10,32 +10,32 @@ library = MappingLibrary("mlsi")
 
 # MICROARRAY
 
-filter_inputs: List[ConnectingOption] = []
+microarray_inputs: List[ConnectingOption] = []
 
 for i in range(10):
-    filter_inputs.append(ConnectingOption(None, ["1"]))
+    microarray_inputs.append(ConnectingOption(None, ["1"]))
 
-filter_outputs: List[ConnectingOption] = []
+microarray_outputs: List[ConnectingOption] = []
 
 for i in range(10):
-    filter_outputs.append(ConnectingOption(None, ["3"]))
+    microarray_outputs.append(ConnectingOption(None, ["3"]))
 
-filter_loadings: List[ConnectingOption] = []
-filter_carriers: List[ConnectingOption] = []
+microarray_loadings: List[ConnectingOption] = []
+microarray_carriers: List[ConnectingOption] = []
 
-filter = Primitive(
-    "FILTER",
+microarray = Primitive(
+    "MICROARRAY",
     PrimitiveType.COMPONENT,
     r"""{
         v1:STORAGE
     }""",
     False,
     False,
-    filter_inputs,
-    filter_outputs,
-    filter_loadings,
-    filter_carriers,
+    microarray_inputs,
+    microarray_outputs,
+    microarray_loadings,
+    microarray_carriers,
     None,
 )
 
-library.add_storage_entry(filter)
+library.add_storage_entry(microarray)
