@@ -183,9 +183,11 @@ def compile_lfr(
             raise ValueError()
         unsized_devices = generate(mapping_listener.currentModule, library)
 
+
         for index, unsized_device in enumerate(unsized_devices):
             output_path = Path(OUTPUT_DIR).joinpath(f"variant_{index}")
             output_path.mkdir(parents=True, exist_ok=True)
+            print(output_path)
             print_netlist(output_path, unsized_device)
             serialize_netlist(output_path, unsized_device)
 

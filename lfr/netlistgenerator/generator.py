@@ -29,6 +29,7 @@ from lfr.postprocessor.mapping import (
     StorageMapping,
 )
 from lfr.utils import printgraph
+from lfr.fig.autocomplete import connect_orphan_IO
 
 
 def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
@@ -71,10 +72,12 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
     # as there would be alternatives for each type of mapping
     matches = get_fig_matches(module.FIG, library)
     print(f"Total Matches against library : {len(matches)}")
+    print("Start of Matches")
     for match in matches:
         # Generate an object that is usable going forward (mapping template perhaps)
-        print(match)
 
+        print(match)
+    print("End of matches")
     # STEP 4 - Eliminate the matches that are exactly the same as the explicit matches
     # Get the explicit mapping and find the explicit mappings here
     explicit_mappings = module.get_explicit_mappings()
@@ -86,46 +89,52 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
         "Total matches against library after explicit mapping eliminations:"
         f" {len(matches)}"
     )
-    for match in matches:
-        print(match)
 
     # STEP 5 - Generate the waste outputs
     # TODO - Add fignodes to all the orphaned flow nodes for this to function
     # connect_orphan_IO()
+    connect_orphan_IO(module.FIG)
 
     # STEP 6 - Generate the mapping variants
     variants = generate_match_variants(
         matches, module.FIG, library, active_strategy, explict_cover_sets
     )
 
-    # STEP 6.5 -Generate the matches for the flow subgraphs
-    add_flow_flow_matching_candidates(module.FIG, variants, active_strategy)
+    for index, variant in enumerate(variants, start=0):
+        variant_filename = f"variant_{index}"
+        variant.print_graph(variant_filename)
 
-    # STEP 8 - Generate the edges in the construction graph
-    print("Generating the construction graph edges...")
-    for variant in variants:
+    # # STEP 6.5 -Generate the matches for the flow subgraphs
+    # add_flow_flow_matching_candidates(module.FIG, variants, active_strategy)
+
+    # # STEP 8 - Generate the edges in the construction graph
+    # print("Generating the construction graph edges...")
+    # for variant in variants:
         generate_construction_graph_edges(module.FIG, variant)
-        variant.print_graph(f"{variant.ID}_construction_graph.dot")
+    #     variant.print_graph(f"{variant.ID}_construction_graph.dot")
 
     # STEP 6.10 - Before generating the device, delete all the variants with incomplete coverage of the FIG
     variants = [variant for variant in variants if variant.is_fig_fully_covered()]
 
-    # Perform the various validate using the active strategy
-    validated_variants = []
-    for variant in variants:
-        flow_validation_success = active_strategy.validate_construction_graph_flow(
-            variant
-        )
+    #Skip validation
 
-        # TODO - Add other kinds of validation here
-        # Eg. active_strategy.whatever_else_validation()
+    # # Perform the various validate using the active strategy
+    # validated_variants = []
+    # for variant in variants:
+    #     flow_validation_success = active_strategy.validate_construction_graph_flow(
+    #         variant
+    #     )
 
-        if flow_validation_success:
-            validated_variants.append(variant)
+    #     # TODO - Add other kinds of validation here
+    #     # Eg. active_strategy.whatever_else_validation()
+
+    #     if flow_validation_success:
+    #         validated_variants.append(variant)
 
     # Now generate the devices for each of the variants
     generated_devices = []
-    for variant in validated_variants:
+    #unvalidated variants
+    for variant in variants:
         # Create the device for each of the variants
         name_generator = NameGenerator()
 
@@ -143,12 +152,7 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
         # STEP 8 - Generate the control logic network
         # TODO - Whatever this entails (put in the implementation)
 
-        # STEP 9 - Generate the connection optimizations
-        # TODO - write the algorithm for carriers and optimize the flows
-        # Generate all the unaccounted carriers and waste output lines necessary
-
-        # STEP 10 - Size the components
-        # TODO - Size the component netlist
+        
 
         generated_devices.append(cur_device)
 
@@ -282,7 +286,13 @@ def eliminate_explicit_match_alternates(
                 )
                 # TODO - We need to have a better way to pick between the primitives
                 # as a temprorary fix we just pick the first one
-                match_primitive_uid = primitives_with_technology[0].uid
+                if (len(primitives_with_technology) > 0):
+                    match_primitive_uid = primitives_with_technology[0].uid
+                else:
+                    primitives_with_technology = library.get_primitives(
+                        "REACTION CHAMBER"
+                    )
+                    match_primitive_uid = primitives_with_technology[0].uid
 
             # Add this match tuple to the list of matches
             match_tuple: LibraryPrimitivesEntry = (
@@ -305,11 +315,6 @@ def eliminate_explicit_match_alternates(
     eliminated_matches.extend(explicit_matches)
 
     return (eliminated_matches, explicit_cover_sets)
-
-
-def connect_orphan_IO():
-    print("Implement the orphan io generation system")
-
 
 def __check_if_passthrough(sub) -> bool:
     """Checks if its a passthrough chain

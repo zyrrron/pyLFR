@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 from typing import List
 
@@ -37,9 +38,12 @@ def get_ouput_path(filename: str) -> str:
 def serialize_netlist(output_path: Path, mint_device: MINTDevice) -> None:
     """Serializes the netlist to a json file"""
 
-    # Generate the MINT file from the pyparchmint device
+    # Generate the JSON file from the pyparchmint device
     json_data = mint_device.to_parchmint()
     json_string = json.dumps(json_data)
+    if "BLACK BOX" in json_string:
+        print("JSON not generated due to custom component")
+        return
     file_path = output_path.joinpath(f"{mint_device.device.name}.json")
     json_file = open(file_path, "wt")
     json_file.write(json_string)
@@ -47,10 +51,25 @@ def serialize_netlist(output_path: Path, mint_device: MINTDevice) -> None:
 
 
 def print_netlist(output_path: Path, mint_device: MINTDevice) -> None:
-    """Prints the netlist to the console"""
+    """Stores the device as a MINT file"""
 
     # Generate the MINT file from the pyparchmint device
-    minttext = mint_device.to_MINT()
+    minttext = re.sub(r'\s+;', ';', mint_device.to_MINT())
+
+    if "BLACK BOX" in minttext:
+        minttext = "Please add default length and width to blackbox component\n" + minttext
+
+    def modify_black_box(match):
+        return f"{match.group(1)} length=[INSERT LENGTH] width=[INSERT WIDTH];"
+
+    minttext = re.sub(r"(BLACK BOX\s+\S+)\s*;", modify_black_box, minttext)
+
+    if "REACTION CHAMBER" in minttext:
+        minttext = "Please add default length and width to reaction chamber component\n" + minttext
+
+    minttext = re.sub(r"(REACTION CHAMBER\s+\S+)\s*;", modify_black_box, minttext)
+
+
     file_path = Path.joinpath(output_path, f"{mint_device.device.name}.mint")
     mint_file = open(file_path, "wt")
     mint_file.write(minttext)

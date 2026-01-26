@@ -221,6 +221,7 @@ class MappingLibrary:
         ret = []
         for primitive in self.__all_primitives.values():
             ret.append((primitive.uid, primitive.mint, primitive.match_string))
+            print((primitive.uid, primitive.mint, primitive.match_string))
 
         return ret
 

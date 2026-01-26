@@ -13,12 +13,12 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8,<3.13"
 networkx = "^3.0"
 argparse = "^1.4.0"
 antlr4-python3-runtime = "^4.10"
 pygraphviz = "^1.6"
-numpy = "^1.19.4"
+numpy = ">=1.19.4,<2.0.0"
 tabulate = "^0.8.7"
 art = "^5.2"
 jsonschema = "^3.2.0"

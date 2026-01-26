@@ -266,6 +266,9 @@ def generate_construction_graph_edges(
                     continue
 
                 construction_graph.connect_nodes(source_cn_node, target_cn_node)
+                print("Connected Nodes")
+                print(source_cn_node._id)
+                print(target_cn_node._id)
                 continue
 
             # Check if they are neighbors
@@ -282,4 +285,7 @@ def generate_construction_graph_edges(
                     continue
 
                 construction_graph.connect_nodes(source_cn_node, target_cn_node)
+                print("Connected Nodes")
+                print(source_cn_node._id)
+                print(target_cn_node._id)
                 continue

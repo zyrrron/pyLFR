@@ -65,6 +65,7 @@ def generate_device(
     # Go through the edges and connect the components using the inputs and outputs of
     # the primitives
     for source_cn_id, target_cn_id in construction_graph.edges:
+
         source_cn = construction_graph.get_construction_node(source_cn_id)
         target_cn = construction_graph.get_construction_node(target_cn_id)
 
@@ -76,14 +77,20 @@ def generate_device(
         source_option = output_options.pop()
         target_option = input_options.pop()
 
+        #Source option exists here
+        #print(source_option.component_port)
+
         # Generate the target from the source option
         source_targets = get_targets(
             source_option, source_cn_id, name_generator, cn_component_mapping
         )
+
         target_targets = get_targets(
             target_option, target_cn_id, name_generator, cn_component_mapping
         )
 
+        #print(source_targets)
+        #print(target_targets)
         # If there is 1 source and 1 target, then connect the components
         if len(source_targets) == 1 and len(target_targets) == 1:
             create_device_connection(
@@ -100,7 +107,6 @@ def generate_device(
             raise NotImplementedError("Multiple targets not implemented")
         elif len(source_targets) > 1 and len(target_targets) == 1:
             raise NotImplementedError("Multiple sources not implemented")
-
 
 def create_device_connection(
     source_target: Target,
@@ -146,7 +152,6 @@ def get_targets(
         old_name = option.component_name
         component_name = name_generator.get_cn_name(connection_node_id, old_name)
         component_names = [component_name]
-
     for component_name in component_names:
         for port_name in option.component_port:
             # Check and make sure that the component name is valid

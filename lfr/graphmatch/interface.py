@@ -198,20 +198,38 @@ def get_fig_matches(
         pattern.
     """
     ret = []
+    print(ret)
+
+    processed_subgraphs = set()
 
     # TODO - Retrun the networkx subgraph views of the of the FIG
     # Step 1 - Generate the match candidates by running the subgraph isomerism for all
     # the items stored in the library
     for minty_uid, mint, match_pattern_string in library.get_match_patterns():
+        print(ret)
+        print(minty_uid)
         if match_pattern_string == "" or match_pattern_string is None:
             print("Warning ! - Missing match string for mint- {}".format(minty_uid))
             continue
         pattern = MatchPattern(match_pattern_string)
+        print(pattern)
+        print(fig)
         structural_template = pattern.get_structural_template()
         semantic_information = pattern.get_semantic_template()
+        print("Templates Here")
+        print("Structural Template Nodes:", structural_template.nodes(data=True))
+        print("Structural Template Edges:", structural_template.edges(data=True))
+        for node, filter_obj in semantic_information.items():
+            print(f"Node {node} has the following constraints:")
+            print(filter_obj.get_constraints())
+        print("Templates End")
         GM = FIGMappingMatcher(fig, structural_template, semantic_information)
 
         for subgraph in GM.subgraph_isomorphisms_iter():
+            if frozenset(subgraph.items()) in processed_subgraphs:
+                # SKIP ALREADY FOUND A MATCH FOR THIS SUBGRAPH
+                continue
+
             # Work with these subgraphs at the end and then push them through the
             # constraint checking phase
 
@@ -256,8 +274,7 @@ def get_fig_matches(
 
                 # MATCH
                 ret.append((minty_uid, mint, subgraph))
-                # SKIP
-                continue
+                processed_subgraphs.add(frozenset(subgraph.items()))
 
             # Case 2 Logic
             if len(distribution_annotations) == 0 and len(distribution_constaints) > 0:
@@ -278,9 +295,13 @@ def get_fig_matches(
                     print(subgraph)
 
                     ret.append((minty_uid, mint, subgraph))
+                    processed_subgraphs.add(frozenset(subgraph.items()))
                 else:
                     # NO-MATCH, SKIP
                     continue
+
+    print("Ret here")
+    print(ret)
 
     return ret
 

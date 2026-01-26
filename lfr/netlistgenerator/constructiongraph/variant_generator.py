@@ -98,6 +98,7 @@ def generate_match_variants(
 
     for match in matches:
         nodes_set = set(list(match[2].keys()))
+        print(nodes_set)
         if nodes_set not in subsets:
             subsets.append(nodes_set)
         universe.union(nodes_set)
@@ -110,6 +111,8 @@ def generate_match_variants(
     # 3. Smallest Cover Matches
     cover = generate_set_cover(universe, subsets)
     print("Moving Max Set Cover to the front:", cover)
+    for node in universe:
+        print(node)
     for cover_set_entry in cover:
         move_entry_to_front(
             matches, find_index_of_match_entry(cover_set_entry, matches)

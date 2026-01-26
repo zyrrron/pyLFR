@@ -214,11 +214,17 @@ class VariantTree(Generic[T]):
         node = self._find_node(variant)
         if node is None:
             raise ValueError(f"Could not find variant {variant}")
-
+        print("Here")
+        print(divergence)
+        print(variant)
+        print(node)
         if divergence in self._divergence_map:
-            raise ValueError(f"Divergence {divergence} already exists")
+            #raise ValueError(f"Divergence {divergence} already exists")
+            print(f"Divergence {divergence} already exists")
+        else:
+            self._divergence_map[divergence] = node
 
-        self._divergence_map[divergence] = node
+        #self._divergence_map[divergence] = node
 
     def get_divergence(self, divergence: object) -> Optional[T]:
         """Get the payload corresponding to the divergence

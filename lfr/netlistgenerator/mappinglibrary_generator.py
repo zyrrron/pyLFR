@@ -381,48 +381,62 @@ def generate_mars_library() -> MappingLibrary:
 def generate_dropx_library() -> MappingLibrary:
     library = MappingLibrary("dropx")
 
+    #BlackBox
+    black_box_inputs: List[ConnectingOption] = []
+    black_box_inputs.append(ConnectingOption(None, ["1"]))
+    black_box_inputs.append(ConnectingOption(None, ["2"]))
+
+    black_box_outputs: List[ConnectingOption] = []
+    black_box_outputs.append(ConnectingOption(None, ["3"]))
+    black_box_outputs.append(ConnectingOption(None, ["4"]))
+
+    black_box = Primitive(
+        "BLACK BOX",
+        PrimitiveType.COMPONENT,
+        r"""{
+            v1: BLACK BOX
+        }""",
+        False,
+        False,
+        black_box_inputs,
+        black_box_outputs,
+        None,
+        None,
+        None,
+    )
+
+    #Chamber
+    chamber_inputs: List[ConnectingOption] = []
+    chamber_inputs.append(ConnectingOption(None, ["1"]))
+    chamber_inputs.append(ConnectingOption(None, ["2"]))
+
+    chamber_outputs: List[ConnectingOption] = []
+    chamber_outputs.append(ConnectingOption(None, ["3"]))
+    chamber_outputs.append(ConnectingOption(None, ["4"]))
+
+    chamber = Primitive(
+        "REACTION CHAMBER",
+        PrimitiveType.COMPONENT,
+        r"""{
+            v1: REACTION CHAMBER
+        }""",
+        False,
+        False,
+        chamber_inputs,
+        chamber_outputs,
+        None,
+        None,
+        None,
+    )
+
+    library.add_io_entry(chamber)
+
     # PORT
     port_inputs: List[ConnectingOption] = []
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
-    port_inputs.append(ConnectingOption(None, [None]))
+    port_inputs.append(ConnectingOption(None, ["1"]))
 
     port_outputs: List[ConnectingOption] = []
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
-    port_outputs.append(ConnectingOption(None, []))
+    port_outputs.append(ConnectingOption(None, ["1"]))
 
     port = Primitive(
         "PORT",
@@ -440,6 +454,54 @@ def generate_dropx_library() -> MappingLibrary:
     )
 
     library.add_io_entry(port)
+
+    # NORMAL MIXER
+
+    mixer_inputs: List[ConnectingOption] = []
+
+    mixer_inputs.append(ConnectingOption(None, ["1"]))
+    mixer_inputs.append(ConnectingOption(None, ["1"]))
+    mixer_inputs.append(ConnectingOption(None, ["1"]))
+    mixer_inputs.append(ConnectingOption(None, ["1"]))
+    mixer_inputs.append(ConnectingOption(None, ["1"]))
+    mixer_inputs.append(ConnectingOption(None, ["1"]))
+    mixer_inputs.append(ConnectingOption(None, ["1"]))
+    mixer_inputs.append(ConnectingOption(None, ["1"]))
+    mixer_inputs.append(ConnectingOption(None, ["1"]))
+    mixer_inputs.append(ConnectingOption(None, ["1"]))
+
+    mixer_outputs: List[ConnectingOption] = []
+
+    mixer_outputs.append(ConnectingOption(None, ["2"]))
+    mixer_outputs.append(ConnectingOption(None, ["2"]))
+    mixer_outputs.append(ConnectingOption(None, ["2"]))
+    mixer_outputs.append(ConnectingOption(None, ["2"]))
+    mixer_outputs.append(ConnectingOption(None, ["2"]))
+    mixer_outputs.append(ConnectingOption(None, ["2"]))
+    mixer_outputs.append(ConnectingOption(None, ["2"]))
+    mixer_outputs.append(ConnectingOption(None, ["2"]))
+    mixer_outputs.append(ConnectingOption(None, ["2"]))
+    mixer_outputs.append(ConnectingOption(None, ["2"]))
+
+    mixer_loadings: List[ConnectingOption] = []
+    mixer_carriers: List[ConnectingOption] = []
+
+    mixer = Primitive(
+        "MIXER",
+        PrimitiveType.COMPONENT,
+        r"""{
+            v1:MIX
+        }""",
+        False,
+        False,
+        mixer_inputs,
+        mixer_outputs,
+        mixer_loadings,
+        mixer_carriers,
+        None,
+    )
+
+    library.add_operator_entry(mixer, InteractionType.MIX)
 
     # PICO INJECTOR
 
@@ -706,54 +768,6 @@ def generate_dropx_library() -> MappingLibrary:
 
     library.add_operator_entry(droplet_splitter, InteractionType.DIVIDE)
 
-    # NORMAL MIXER
-
-    mixer_inputs: List[ConnectingOption] = []
-
-    mixer_inputs.append(ConnectingOption(None, ["1"]))
-    mixer_inputs.append(ConnectingOption(None, ["1"]))
-    mixer_inputs.append(ConnectingOption(None, ["1"]))
-    mixer_inputs.append(ConnectingOption(None, ["1"]))
-    mixer_inputs.append(ConnectingOption(None, ["1"]))
-    mixer_inputs.append(ConnectingOption(None, ["1"]))
-    mixer_inputs.append(ConnectingOption(None, ["1"]))
-    mixer_inputs.append(ConnectingOption(None, ["1"]))
-    mixer_inputs.append(ConnectingOption(None, ["1"]))
-    mixer_inputs.append(ConnectingOption(None, ["1"]))
-
-    mixer_outputs: List[ConnectingOption] = []
-
-    mixer_outputs.append(ConnectingOption(None, ["2"]))
-    mixer_outputs.append(ConnectingOption(None, ["2"]))
-    mixer_outputs.append(ConnectingOption(None, ["2"]))
-    mixer_outputs.append(ConnectingOption(None, ["2"]))
-    mixer_outputs.append(ConnectingOption(None, ["2"]))
-    mixer_outputs.append(ConnectingOption(None, ["2"]))
-    mixer_outputs.append(ConnectingOption(None, ["2"]))
-    mixer_outputs.append(ConnectingOption(None, ["2"]))
-    mixer_outputs.append(ConnectingOption(None, ["2"]))
-    mixer_outputs.append(ConnectingOption(None, ["2"]))
-
-    mixer_loadings: List[ConnectingOption] = []
-    mixer_carriers: List[ConnectingOption] = []
-
-    mixer = Primitive(
-        "MIXER",
-        PrimitiveType.COMPONENT,
-        r"""{
-            v1:MIX
-        }""",
-        False,
-        False,
-        mixer_inputs,
-        mixer_outputs,
-        mixer_loadings,
-        mixer_carriers,
-        None,
-    )
-
-    library.add_operator_entry(mixer, InteractionType.MIX)
-
     # DROPLET CAPACITANCE SENSOR
 
     droplet_capacitance_sensor_inputs: List[ConnectingOption] = []
@@ -784,6 +798,70 @@ def generate_dropx_library() -> MappingLibrary:
 
     library.add_operator_entry(
         droplet_capacitance_sensor, InteractionType.TECHNOLOGY_PROCESS
+    )
+
+    # Cell Trapper
+
+    cell_trapper_inputs: List[ConnectingOption] = []
+
+    cell_trapper_inputs.append(ConnectingOption(None, ["1"]))
+
+    cell_trapper_outputs: List[ConnectingOption] = []
+
+    cell_trapper_outputs.append(ConnectingOption(None, ["2"]))
+
+    cell_trapper_loadings: List[ConnectingOption] = []
+    cell_trapper_carriers: List[ConnectingOption] = []
+
+    cell_trapper = Primitive(
+        "SQUARE CELL TRAP",
+        PrimitiveType.COMPONENT,
+        r"""{
+            v1:STORAGE
+        }""",
+        True,
+        True,
+        cell_trapper_inputs,
+        cell_trapper_outputs,
+        cell_trapper_loadings,
+        cell_trapper_carriers,
+        None,
+    )
+
+    library.add_operator_entry(
+        cell_trapper, InteractionType.TECHNOLOGY_PROCESS
+    )
+
+    # Long Cell Trapper
+
+    long_cell_trapper_inputs: List[ConnectingOption] = []
+
+    long_cell_trapper_inputs.append(ConnectingOption(None, ["1"]))
+
+    long_cell_trapper_outputs: List[ConnectingOption] = []
+
+    long_cell_trapper_outputs.append(ConnectingOption(None, ["2"]))
+
+    long_cell_trapper_loadings: List[ConnectingOption] = []
+    long_cell_trapper_carriers: List[ConnectingOption] = []
+
+    long_cell_trapper = Primitive(
+        "LONG CELL TRAPPER",
+        PrimitiveType.COMPONENT,
+        r"""{
+            v1:STORAGE
+        }""",
+        True,
+        True,
+        long_cell_trapper_inputs,
+        long_cell_trapper_outputs,
+        long_cell_trapper_loadings,
+        long_cell_trapper_carriers,
+        None,
+    )
+
+    library.add_operator_entry(
+        long_cell_trapper, InteractionType.TECHNOLOGY_PROCESS
     )
 
     # FILTER
