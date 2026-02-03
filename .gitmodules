@@ -1,12 +1,12 @@
 [submodule "pymint"]
 	path = pymint
-	url = https://github.com/cidarlab/pymint
+	url = https://github.com/CIDARLAB/pyMINT
 	branch = master
 [submodule "pyparchmint"]
 	path = pyparchmint
-	url = https://github.com/cidarlab/pyparchmint
+	url = https://github.com/CIDARLAB/pyparchmint
 	branch = master
 [submodule "dafd"]
 	path = dafd
-	url = https://github.com/rkrishnasanka/dafd
-	branch = master
+	url = https://github.com/CIDARLAB/DAFD
+	branch = Neptune2026
