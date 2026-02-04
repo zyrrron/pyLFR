@@ -7,7 +7,7 @@ from lfr.fig.fignode import FIGNode
 if TYPE_CHECKING:
     from lfr.fig.fluidinteractiongraph import FluidInteractionGraph
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 
 import networkx as nx
 import numpy as np
@@ -21,6 +21,9 @@ from lfr.fig.annotation import (
     ORAnnotation,
 )
 from lfr.utils import convert_list_to_str
+
+# Type for control mapping: ((source_id, target_id), valve_id, control_port_id)
+ControlMappingEntry = Tuple[Tuple[str, str], str, str]
 
 
 class StateTable:
@@ -39,6 +42,8 @@ class StateTable:
         self._or_annotations: List[ORAnnotation] = []
         self._not_annotations: List[NOTAnnotation] = []
         self._annotated_connectivity_edges: List[Tuple[str, str]] = []
+        # Control mapping: each entry is ((source_id, target_id), valve_id, control_port_id) (1:1 valve to control port)
+        self._control_mapping: List[ControlMappingEntry] = []
 
         self._or_column_skip_list: List[int] = []
 
@@ -336,9 +341,58 @@ class StateTable:
                 annotation = fig.add_not_annotation((source_node, target_node))
                 self._not_annotations.append(annotation)
 
+    def _edges_from_annotation(
+        self, annotation: DistributeAnnotation
+    ) -> List[Tuple[str, str]]:
+        """Collect all (source_id, target_id) edges from an annotation (recursive for OR containing AND)."""
+        edges: List[Tuple[str, str]] = []
+        for item in annotation.get_items():
+            if isinstance(item, tuple):
+                s, t = item
+                if isinstance(s, FIGNode) and isinstance(t, FIGNode):
+                    edges.append((s.ID, t.ID))
+            else:
+                # Nested DistributeAnnotation (e.g. OR containing AND)
+                edges.extend(self._edges_from_annotation(item))
+        return edges
+
     def compute_control_mapping(self) -> None:
-        print("TODO - Implement method to generate the control mapping")
-        # TODO - Generate the full connectivity table with mapping options
+        """Build 1:1 mapping from each annotated flow edge to a valve and a control port.
+        Each edge that appears in AND/OR/NOT annotations gets one valve and one control port.
+        """
+        all_edges: List[Tuple[str, str]] = []
+        for ann in self._and_annotations:
+            all_edges.extend(self._edges_from_annotation(ann))
+        for ann in self._or_annotations:
+            all_edges.extend(self._edges_from_annotation(ann))
+        for ann in self._not_annotations:
+            all_edges.extend(self._edges_from_annotation(ann))
+
+        # Deduplicate by (source, target) while preserving order
+        seen: Set[Tuple[str, str]] = set()
+        unique_edges: List[Tuple[str, str]] = []
+        for e in all_edges:
+            if e not in seen:
+                seen.add(e)
+                unique_edges.append(e)
+
+        self._control_mapping = []
+        for i, edge in enumerate(unique_edges):
+            valve_id = "valve_{}".format(i)
+            control_port_id = "ctrl_{}".format(i)
+            self._control_mapping.append((edge, valve_id, control_port_id))
+
+        print(
+            "Control mapping: {} edge(s) -> valve/control_port (1:1)".format(
+                len(self._control_mapping)
+            )
+        )
+        for (src, tgt), vid, cid in self._control_mapping:
+            print("  {} -> {}  :  {}  <-  {}".format(src, tgt, vid, cid))
+
+    def get_control_mapping(self) -> List[ControlMappingEntry]:
+        """Return the list of (edge, valve_id, control_port_id). Must call compute_control_mapping() first."""
+        return list(self._control_mapping)
 
     @staticmethod
     def hamming_distance(vec1, vec2) -> int:

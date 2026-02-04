@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Set, Tuple
 
 import networkx as nx
 from parchmint import Target
@@ -17,7 +17,7 @@ def generate_device(
     scaffhold_device: MINTDevice,
     name_generator: NameGenerator,
     mapping_library: MappingLibrary,
-) -> None:
+) -> Dict[str, List[str]]:
     # TODO - Generate the device
     # Step 1 - go though each of the construction nodes and genrate the corresponding
     # components
@@ -107,6 +107,123 @@ def generate_device(
             raise NotImplementedError("Multiple targets not implemented")
         elif len(source_targets) > 1 and len(target_targets) == 1:
             raise NotImplementedError("Multiple sources not implemented")
+
+    return cn_component_mapping
+
+
+def _fig_id_from_node(n) -> str:
+    """Return FIG node ID (string) from a node in fig_subgraph (object or str)."""
+    return getattr(n, "ID", str(n))
+
+
+def generate_control_network(
+    module,
+    variant: ConstructionGraph,
+    cn_component_mapping: Dict[str, List[str]],
+    scaffhold_device: MINTDevice,
+) -> None:
+    """Add CONTROL layer, valves on flow connections, and Cport components from FIG state_tables.
+
+    Control-layer ports are named Cport_0, Cport_1, ... to distinguish from flow layer.
+    """
+    from parchmint.device import ValveType
+    from pymint.mintlayer import MINTLayerType
+
+    fig = module.FIG
+    if not fig.state_tables:
+        return
+
+    # Build fig_node_id -> set(device component IDs)
+    fig_to_components: Dict[str, set] = {}
+    for cn in variant.construction_nodes:
+        try:
+            sub = cn.fig_subgraph
+        except Exception:
+            continue
+        fig_ids = set(_fig_id_from_node(n) for n in sub.nodes)
+        comps = set(cn_component_mapping.get(cn.ID, []))
+        for fid in fig_ids:
+            fig_to_components.setdefault(fid, set()).update(comps)
+
+    # Collect all control mappings from state tables
+    control_entries: List[Tuple[Tuple[str, str], str, str]] = []
+    for st in fig.state_tables:
+        control_entries.extend(st.get_control_mapping())
+
+    if not control_entries:
+        return
+
+    # Resolve FIG node ID to component set (use _removed_to_surviving alias after simplification)
+    def resolve_fig_id(fig_id: str) -> Set[str]:
+        out = set(fig_to_components.get(fig_id, set()))
+        if not out and getattr(fig, "_removed_to_surviving", None):
+            aliased = fig._removed_to_surviving.get(fig_id)
+            if aliased:
+                out = set(fig_to_components.get(aliased, set()))
+        return out
+
+    # Ensure CONTROL layer exists (id "1", name "control")
+    control_layer_id = "1"
+    try:
+        scaffhold_device.device.get_layer(control_layer_id)
+    except KeyError:
+        scaffhold_device.create_mint_layer(
+            control_layer_id, "control", 1, MINTLayerType.CONTROL
+        )
+
+    for idx, ((fig_src, fig_tgt), valve_id, _ctrl_id) in enumerate(control_entries):
+        src_comps = resolve_fig_id(fig_src)
+        tgt_comps = resolve_fig_id(fig_tgt)
+        conn = None
+        for c in scaffhold_device.device.connections:
+            if c.layer is None or c.layer.ID != "0":
+                continue
+            src_ok = c.source and c.source.component in src_comps
+            snk = c.sinks[0] if c.sinks else None
+            tgt_ok = snk and snk.component in tgt_comps
+            if src_ok and tgt_ok:
+                conn = c
+                break
+        if conn is None:
+            continue
+
+        # Add control-layer port first (so we can connect Ctrlchannel from it to valve)
+        cport_name = "Cport_{}".format(idx)
+        if not any(c.ID == cport_name for c in scaffhold_device.device.components):
+            scaffhold_device.create_mint_component(
+                name=cport_name,
+                technology="PORT",
+                params={"position": [-1, -1]},
+                layer_ids=[control_layer_id],
+            )
+
+        # Add valve on this flow connection (on control layer)
+        if not any(v.ID == valve_id for v in scaffhold_device.device.valves):
+            scaffhold_device.create_valve(
+                name=valve_id,
+                technology="VALVE",
+                params={"position": [-1, -1], "controlPort": cport_name},
+                layer_ids=[control_layer_id],
+                connection=conn,
+                valve_type=ValveType.NORMALLY_OPEN,
+            )
+
+        scaffhold_device.device.set_valve_control_port(valve_id, cport_name)
+
+        # Control-layer channel from Cport to valve (Ctrlchannel to distinguish from flow CHANNELs)
+        ctrl_channel_name = "Ctrlchannel_{}".format(idx)
+        if not any(c.ID == ctrl_channel_name for c in scaffhold_device.device.connections):
+            src_target = Target(component_id=cport_name, port="1")
+            sink_target = Target(component_id=valve_id, port="1")
+            scaffhold_device.create_mint_connection(
+                name=ctrl_channel_name,
+                technology="CHANNEL",
+                params={"position": [-1, -1]},
+                source=src_target,
+                sinks=[sink_target],
+                layer_id=control_layer_id,
+            )
+
 
 def create_device_connection(
     source_target: Target,

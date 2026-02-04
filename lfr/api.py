@@ -89,9 +89,10 @@ def synthesize_module(
     mapping_listener.print_variables()
 
     if mapping_listener.currentModule is not None:
+        parameters.CURRENT_MODULE_NAME = mapping_listener.currentModule.name
         interactiongraph = mapping_listener.currentModule.FIG
         if print_fig is True:
-            printgraph(interactiongraph, mapping_listener.currentModule.name + ".dot")
+            printgraph(interactiongraph, mapping_listener.currentModule.name)
 
     return mapping_listener
 
@@ -104,6 +105,7 @@ def compile_lfr(
     no_mapping_flag: bool = False,
     no_gen_flag: bool = False,
     no_annotations_flag: bool = False,
+    print_debug_graphs: bool = True,
     pre_load: List[str] = [],
 ) -> int:
     """Standard API to compile a lfr file
@@ -120,6 +122,7 @@ def compile_lfr(
         no_mapping_flag (bool, optional): Enables/Disables mapping. Defaults to False.
         no_gen_flag (bool, optional): Enables/Disables device generation. Defaults to False.
         no_annotations_flag (bool, optional): Skip Annotation parsing. Defaults to False.
+        print_debug_graphs (bool, optional): If False, do not write FIG/construction .dot and .pdf (only .mint/.json). Defaults to True.
         pre_load (List[str], optional): Preload Directory. Defaults to [].
 
     Raises:
@@ -144,6 +147,7 @@ def compile_lfr(
 
     abspath = Path(outpath).absolute()
     parameters.OUTPUT_DIR = abspath
+    parameters.PRINT_DEBUG_GRAPHS = print_debug_graphs
 
     if os.path.isdir(abspath) is not True:
         print("Creating the output directory:")
@@ -155,7 +159,7 @@ def compile_lfr(
 
     # Setup and run the compiler's mapping listener
     mapping_listener = synthesize_module(
-        preprocessor_dump_input_path, no_annotations_flag
+        preprocessor_dump_input_path, no_annotations_flag, print_fig=print_debug_graphs
     )
 
     if no_gen_flag is True:
@@ -181,11 +185,18 @@ def compile_lfr(
             raise ValueError()
         if library is None:
             raise ValueError()
+        module_name = mapping_listener.currentModule.name
+        parameters.CURRENT_MODULE_NAME = module_name
         unsized_devices = generate(mapping_listener.currentModule, library)
 
+        if not unsized_devices:
+            print("Warning: no device variants generated (FIG may not be fully covered). Check compiler output above.")
 
+        module_out_dir = Path(parameters.OUTPUT_DIR).joinpath(module_name)
         for index, unsized_device in enumerate(unsized_devices):
-            output_path = Path(OUTPUT_DIR).joinpath(f"variant_{index}")
+            output_path = module_out_dir.joinpath(f"variant_{index}")
+            if output_path.exists() and output_path.is_file():
+                output_path.unlink()
             output_path.mkdir(parents=True, exist_ok=True)
             print(output_path)
             print_netlist(output_path, unsized_device)

@@ -19,7 +19,10 @@ from lfr.netlistgenerator.gen_strategies.dummy import DummyStrategy
 from lfr.netlistgenerator.gen_strategies.marsstrategy import MarsStrategy
 from lfr.netlistgenerator.mappinglibrary import MappingLibrary
 from lfr.netlistgenerator.namegenerator import NameGenerator
-from lfr.netlistgenerator.netlist_generation import generate_device
+from lfr.netlistgenerator.netlist_generation import (
+    generate_control_network,
+    generate_device,
+)
 from lfr.postprocessor.mapping import (
     FluidicOperatorMapping,
     NetworkMapping,
@@ -28,6 +31,7 @@ from lfr.postprocessor.mapping import (
     PumpMapping,
     StorageMapping,
 )
+from lfr import parameters
 from lfr.utils import printgraph
 from lfr.fig.autocomplete import connect_orphan_IO
 
@@ -50,9 +54,11 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
     # construction_graph = ConstructionGraph()
 
     # Step 1 - Simplify the Fluid Interaction Graphs
-    printgraph(module.FIG, f"{module.name}_FIG")
+    if getattr(parameters, "PRINT_DEBUG_GRAPHS", True):
+        printgraph(module.FIG, f"{module.name}_FIG")
     remove_passthrough_nodes(module.FIG)
-    printgraph(module.FIG, f"{module.name}_FIG_simplified")
+    if getattr(parameters, "PRINT_DEBUG_GRAPHS", True):
+        printgraph(module.FIG, f"{module.name}_FIG_simplified")
 
     # STEP 2 - Initialize the active strategy
     # TODO - I need to change this DummyStrategy later on
@@ -101,8 +107,9 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
     )
 
     for index, variant in enumerate(variants, start=0):
-        variant_filename = f"variant_{index}"
-        variant.print_graph(variant_filename)
+        if getattr(parameters, "PRINT_DEBUG_GRAPHS", True):
+            variant_filename = f"variant_{index}_construction.dot"
+            variant.print_graph(variant_filename)
 
     # # STEP 6.5 -Generate the matches for the flow subgraphs
     # add_flow_flow_matching_candidates(module.FIG, variants, active_strategy)
@@ -143,16 +150,19 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
         # Add a MINT Layer so that the device has something to work with
         cur_device.create_mint_layer("0", "0", 0, MINTLayerType.FLOW)
 
-        generate_device(
+        cn_component_mapping = generate_device(
             construction_graph=variant,
             scaffhold_device=cur_device,
             name_generator=name_generator,
             mapping_library=library,
         )
-        # STEP 8 - Generate the control logic network
-        # TODO - Whatever this entails (put in the implementation)
-
-        
+        # STEP 8 - Generate the control logic network (valves + Cport on CONTROL layer)
+        generate_control_network(
+            module=module,
+            variant=variant,
+            cn_component_mapping=cn_component_mapping,
+            scaffhold_device=cur_device,
+        )
 
         generated_devices.append(cur_device)
 

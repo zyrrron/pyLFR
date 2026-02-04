@@ -1,5 +1,6 @@
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
+from lfr.fig.fignode import IONode, IOType
 from lfr.fig.fluidinteractiongraph import FluidInteractionGraph
 from lfr.netlistgenerator import LibraryPrimitivesEntry
 from lfr.netlistgenerator.constructiongraph.constructiongraph import ConstructionGraph
@@ -92,6 +93,16 @@ def generate_match_variants(
     seed_variant = ConstructionGraph(f"variant_{variant_index}", fig)
     variant_tree.add_variant(seed_variant, None)
 
+    # Flow-only node IDs: CONTROL IONodes (e.g. "c") are not mapped to flow primitives
+    control_node_ids = set()
+    for nid in fig.nodes:
+        try:
+            node = fig.get_fignode(nid)
+        except Exception:
+            continue
+        if isinstance(node, IONode) and getattr(node, "type", None) == IOType.CONTROL:
+            control_node_ids.add(nid)
+
     # Find the set of matches that are non overlapping using a greedy cover algorithm
     subsets = []
     universe = set()
@@ -101,7 +112,7 @@ def generate_match_variants(
         print(nodes_set)
         if nodes_set not in subsets:
             subsets.append(nodes_set)
-        universe.union(nodes_set)
+        universe |= nodes_set
 
     # Group all the matches based on the node mappings
 
@@ -129,6 +140,10 @@ def generate_match_variants(
     # Loop through every match
     for match in matches:
         print("Checking Match:", match)
+        # Skip matches that only cover CONTROL nodes (no flow-layer PORT for control signal)
+        match_node_ids = set(match[2].keys())
+        if match_node_ids and match_node_ids <= control_node_ids:
+            continue
         # For each match, create a construction node
         primitive_uid = match[0]
         primitive_technology = match[1]

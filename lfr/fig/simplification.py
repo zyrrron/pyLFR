@@ -75,6 +75,11 @@ def remove_passthrough_nodes(fig: FluidInteractionGraph) -> None:
             # flow node and make the connections
             if len(incoming_neighbors) == 1 and len(outouting_neighbors) == 1:
                 print("Removing the component:", component)
+                # Store alias so control mapping can resolve e.g. "mixer" -> inlet1_MIX_(+)_inlet2_0
+                if not hasattr(fig_original, "_removed_to_surviving"):
+                    fig_original._removed_to_surviving = {}
+                for node_id in component:
+                    fig_original._removed_to_surviving[node_id] = incoming_neighbors[0]
                 # Connect the input and output nodes
                 fig_original.add_edge(incoming_neighbors[0], outouting_neighbors[0])
             else:

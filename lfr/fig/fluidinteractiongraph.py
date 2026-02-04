@@ -50,6 +50,8 @@ class FluidInteractionGraph(nx.DiGraph):
         self._annotations: List[DistributeAnnotation] = []
         # Use this to store all the control to flow logic
         self._state_tables: List[StateTable] = []
+        # After FIG simplification: removed node ID -> surviving FIG node ID (for control matching)
+        self._removed_to_surviving: Dict[str, str] = {}
 
     def add_state_table(self, state_table: StateTable) -> None:
         """Adds a state table to the FluidInteractionGraph
@@ -58,6 +60,11 @@ class FluidInteractionGraph(nx.DiGraph):
             state_table (StateTable): State table to add
         """
         self._state_tables.append(state_table)
+
+    @property
+    def state_tables(self) -> List[StateTable]:
+        """Returns the list of state tables (control-layer distribute blocks)."""
+        return list(self._state_tables)
 
     @property
     def annotations(self) -> List[DistributeAnnotation]:

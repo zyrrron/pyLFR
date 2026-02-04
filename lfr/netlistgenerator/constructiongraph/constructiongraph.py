@@ -6,6 +6,7 @@ from typing import FrozenSet, List
 import networkx as nx
 
 from lfr import parameters
+from lfr.fig.fignode import IONode, IOType
 from lfr.fig.fluidinteractiongraph import FluidInteractionGraph
 from lfr.netlistgenerator.constructiongraph.constructionnode import ConstructionNode
 
@@ -88,21 +89,33 @@ class ConstructionGraph(nx.DiGraph):
 
     def is_fig_fully_covered(self) -> bool:
         """
-        This method checks if the FIG is fully covered by the construction graph
+        This method checks if the FIG is fully covered by the construction graph.
+        Only flow-layer nodes are required to be covered; CONTROL IONodes (e.g. control c)
+        are not mapped to flow primitives and are handled on the control layer.
+        Auto-added waste outputs (out_waste_*) are also excluded from required coverage.
         """
-        # Check if all the fig nodes are covered by construction nodes fig_subgraph
-        # Create a set of all the fig node ids
-        # Go through each of the construction nodes and the corresponding fig subgraph
-        # nodes if the fig subgraph node is not in the list of fig node ids, then the
-        # graph is not fully covered
-        fig_node_set = set([node for node in self._fig.nodes])
+        # Flow nodes only: exclude CONTROL and waste outputs
+        fig_flow_node_ids = set()
+        for nid in self._fig.nodes:
+            if isinstance(nid, str) and nid.startswith("out_waste_"):
+                continue
+            try:
+                node = self._fig.get_fignode(nid)
+            except Exception:
+                fig_flow_node_ids.add(nid)
+                continue
+            if isinstance(node, IONode) and getattr(node, "type", None) == IOType.CONTROL:
+                continue
+            fig_flow_node_ids.add(nid)
         for cn in self._construction_nodes:
             fig_subgraph = cn.fig_subgraph
             for node in fig_subgraph.nodes:
-                if node not in fig_node_set:
-                    return False
-        else:
-            return True
+                nid = getattr(node, "ID", node)
+                if nid in fig_flow_node_ids:
+                    fig_flow_node_ids.discard(nid)
+        if fig_flow_node_ids:
+            print(f"FIG not fully covered: uncovered flow node(s) = {fig_flow_node_ids}")
+        return len(fig_flow_node_ids) == 0
 
     def generate_variant(self, new_id: str) -> ConstructionGraph:
         # Generate a variant of the construction graph
@@ -150,11 +163,21 @@ class ConstructionGraph(nx.DiGraph):
         return ret
 
     def print_graph(self, filename: str) -> None:
-        """Prints the graph to a file
-
-        Args:
-            filename (str): Name of the file to print the graph to
+        """Prints the graph to a file under OUTPUT_DIR / CURRENT_MODULE_NAME (if set)
+        so different LFR benchmarks do not overwrite the same .dot file.
         """
-        tt = os.path.join(parameters.OUTPUT_DIR, filename)
+        if not getattr(parameters, "PRINT_DEBUG_GRAPHS", True):
+            return
+        base = parameters.OUTPUT_DIR
+        module_name = getattr(parameters, "CURRENT_MODULE_NAME", None)
+        if module_name:
+            out_dir = os.path.join(base, module_name)
+            os.makedirs(out_dir, exist_ok=True)
+            tt = os.path.join(out_dir, filename)
+        else:
+            tt = os.path.join(base, filename)
         print("File Path:", tt)
-        nx.nx_agraph.to_agraph(self).write(tt)
+        try:
+            nx.nx_agraph.to_agraph(self).write(tt)
+        except (ImportError, Exception):
+            pass  # pygraphviz not available; skip variant dot output
