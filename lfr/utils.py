@@ -78,7 +78,8 @@ def print_netlist(output_path: Path, mint_device: MINTDevice) -> None:
     minttext = re.sub(r"(REACTION CHAMBER\s+\S+)\s*;", modify_black_box, minttext)
 
 
-    file_path = Path.joinpath(output_path, f"{mint_device.device.name}.mint")
+    mint_name = f"{mint_device.device.name}_fromLFR.mint"
+    file_path = Path.joinpath(output_path, mint_name)
     mint_file = open(file_path, "wt")
     mint_file.write(minttext)
     mint_file.close()
