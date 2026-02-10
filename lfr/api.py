@@ -106,7 +106,7 @@ def compile_lfr(
     no_mapping_flag: bool = False,
     no_gen_flag: bool = False,
     no_annotations_flag: bool = False,
-    print_debug_graphs: bool = True,
+    print_debug_graphs: bool = False,
     pre_load: List[str] = [],
     device_callback: Optional[Callable[[Device], None]] = None,
     variant_index: Optional[int] = None,
@@ -130,7 +130,7 @@ def compile_lfr(
         no_mapping_flag (bool, optional): Enables/Disables mapping. Defaults to False.
         no_gen_flag (bool, optional): Enables/Disables device generation. Defaults to False.
         no_annotations_flag (bool, optional): Skip Annotation parsing. Defaults to False.
-        print_debug_graphs (bool, optional): If False, do not write FIG/construction .dot and .pdf (only .mint/.json). Defaults to True.
+        print_debug_graphs (bool, optional): If True, write FIG/construction .dot and .pdf for debugging. Defaults to False (only .mint/.json).
         pre_load (List[str], optional): Preload Directory. Defaults to [].
         device_callback (Optional[Callable[[Device], None]], optional): If set, called on each device before writing MINT/JSON (e.g. to apply primitives server dimensions).
         variant_index (Optional[int], optional): If set, only output this variant (0-based). Defaults to None (output all variants).
@@ -207,8 +207,10 @@ def compile_lfr(
             if 0 <= variant_index < len(unsized_devices):
                 indices_to_output = [variant_index]
             else:
+                max_idx = len(unsized_devices) - 1
                 print(
-                    f"Warning: variant_index={variant_index} out of range [0, {len(unsized_devices)}); using variant_0."
+                    f"Warning: variant_index={variant_index} out of range. "
+                    f"Valid variant indices: 0 to {max_idx} (max {max_idx}). Using variant_0."
                 )
                 indices_to_output = [0]
 
