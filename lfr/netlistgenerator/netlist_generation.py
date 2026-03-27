@@ -197,11 +197,12 @@ def generate_control_network(
                 layer_ids=[control_layer_id],
             )
 
-        # Add valve on this flow connection (on control layer)
+        # Add valve on this flow connection (on control layer).
+        # Default valve primitive is VALVE3D unless a different primitive is introduced later.
         if not any(v.ID == valve_id for v in scaffhold_device.device.valves):
             scaffhold_device.create_valve(
                 name=valve_id,
-                technology="VALVE",
+                technology="VALVE3D",
                 params={"position": [-1, -1], "controlPort": cport_name},
                 layer_ids=[control_layer_id],
                 connection=conn,
