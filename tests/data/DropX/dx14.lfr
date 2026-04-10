@@ -1,4 +1,4 @@
-// Based on the design by Ali Lashkaripour
+//  Based on the design by Ali Lashkaripour
 
 module dx14(
     finput in1, in2, in3,

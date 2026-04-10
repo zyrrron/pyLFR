@@ -1,4 +1,4 @@
-// Based on the design by Eric South
+//  Based on the design by Eric South
 
 module dx11(
     finput in1, in2, in3,

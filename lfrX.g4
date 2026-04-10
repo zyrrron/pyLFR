@@ -179,6 +179,7 @@ ID: ('a' ..'z' | 'A' ..'Z' | '_') (
 
 WS: [ \t\r\n]+ -> skip;
 
+// Verilog-style comments (LFR surface syntax is Verilog-like)
 One_line_comment: '//' .*? '\r'? '\n' -> channel (HIDDEN);
 
 Block_comment: '/*' .*? '*/' -> channel (HIDDEN);

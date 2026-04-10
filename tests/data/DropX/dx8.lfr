@@ -1,4 +1,4 @@
-// Based on the design by Leslie Huang
+//  Based on the design by Leslie Huang
 
 module dx8(
     finput in1, in2, in3, in4, in5, in6,

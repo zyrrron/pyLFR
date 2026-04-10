@@ -1,4 +1,4 @@
-// Based on the design by Samuel Oliveria
+//  Based on the design by Samuel Oliveria
 
 module dx10(
     finput in1, in2,

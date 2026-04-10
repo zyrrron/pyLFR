@@ -1,4 +1,4 @@
-// Based on the design by David McIntyre
+//  Based on the design by David McIntyre
 
 module dx9(
     finput in1, in2, in3,

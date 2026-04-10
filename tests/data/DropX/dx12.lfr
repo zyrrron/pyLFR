@@ -1,4 +1,4 @@
-// Based on the Design by Rita Chen
+//  Based on the Design by Rita Chen
 
 module dx12(
     finput plasmids, dig1, dig2,

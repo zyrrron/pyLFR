@@ -1,4 +1,4 @@
-// Based on the design by Diana Arguijo
+//  Based on the design by Diana Arguijo
 
 module dx13(
     finput in1, in2, in3,
