@@ -1,0 +1,12 @@
+// Minimal LFR case corresponding to a REACTION CHAMBER.
+// Matches the MINT primitive `CHAMBER ...` in QuickTest/default/MINT/reaction_chamber.mint.
+// Fluid flows into the chamber, undergoes an incubation / reaction step
+// (mapped to the `~` operator), and flows out. #MAP directs the technology
+// mapper to realize `~` as a physical reaction chamber.
+module reaction_chamber(
+    finput in_1,
+    foutput out_1
+);
+    #MAP "CHAMBER" "~"
+    assign out_1 = ~in_1;
+endmodule

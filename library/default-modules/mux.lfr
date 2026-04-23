@@ -1,0 +1,22 @@
+// Minimal LFR case corresponding to a 1-to-8 MUX (multiplexer, fanout).
+// Matches the MINT primitive `MUX ... in=1 out=8` in QuickTest/default/MINT/mux.mint.
+// The 3-bit control signal `c_select` steers the single input to one of eight outputs.
+module mux(
+    finput input,
+    foutput [0:7] outputs,
+    control [0:2] c_select
+);
+    distribute@(c_select)
+    begin
+        case(c_select)
+            3'b000 : outputs[0] <= input;
+            3'b001 : outputs[1] <= input;
+            3'b010 : outputs[2] <= input;
+            3'b011 : outputs[3] <= input;
+            3'b100 : outputs[4] <= input;
+            3'b101 : outputs[5] <= input;
+            3'b110 : outputs[6] <= input;
+            3'b111 : outputs[7] <= input;
+        endcase
+    end
+endmodule

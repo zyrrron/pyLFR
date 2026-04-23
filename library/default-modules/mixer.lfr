@@ -1,0 +1,7 @@
+// Minimal LFR case corresponding to a basic MIXER.
+module mixer(
+    finput in_1, in_2,
+    foutput out_1
+);
+    assign out_1 = in_1 + in_2;
+endmodule

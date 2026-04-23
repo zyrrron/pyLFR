@@ -68,6 +68,176 @@ optional arguments:
   ```
 
 
+## Module Reuse Across Files
+
+LFR supports Verilog-style cross-file module reuse. Put every reusable block
+in its own `.lfr` file (one `module` per file), import it with a backtick
+`` `import `` directive at the top, and instantiate it by name.
+
+### Convention: `filename == module name`
+
+For every `Foo.lfr` the file must declare exactly one `module Foo(...)`.
+The compiler checks this after preprocessing:
+
+- By default: a warning is printed for every mismatch.
+- Set `LFR_STRICT_MODULE_NAMES=1` to turn the warning into a hard error.
+
+This convention is what lets the preprocessor, the ANTLR pass, and
+`fluigi synthesize` all agree on which file holds which module without any
+extra metadata.
+
+### Import syntax
+
+```lfr
+`import "Valve.lfr"                 // bare basename
+`import "components/Valve.lfr"      // relative path (below the importing file)
+`import "/abs/path/Valve.lfr"       // absolute path
+```
+
+Only one import per line. The quoted string must end in `.lfr`.
+
+### How imports are resolved
+
+For each `` `import "<spec>" ``, the preprocessor resolves `<spec>` to an
+actual file in this order:
+
+1. **Absolute path** -> used as-is if it exists.
+2. **Path with a directory component** (e.g. `pkg/Foo.lfr`):
+   1. tried relative to the directory of the file doing the import, then
+   2. tried relative to each `--pre-load` / library directory.
+3. **Bare basename** (e.g. `Foo.lfr`):
+   1. first looked up in the preloaded library index (any `.lfr` under the
+      `--pre-load` / library directories, scanned recursively), then
+   2. tried relative to the directory of the file doing the import.
+
+Nested / transitive imports are followed automatically: if a library file
+itself contains `` `import "Bar.lfr" ``, `Bar.lfr` is pulled in too. A
+circular import raises an error instead of looping.
+
+### Library search paths
+
+Two sources feed the preloaded library index:
+
+- Anything passed via `--pre-load <dir>` (repeatable, recursive scan).
+- The directory given by `--library-path <dir>` (defaults to `pylfr/library`).
+  Since Neptune 2026 this directory is **automatically** added to the
+  preloaded library index, so `` `import "foo.lfr" `` works without needing
+  to repeat the path as `--pre-load`.
+
+### Example
+
+```
+project/
+├── valve/
+│   └── Valve.lfr        // module Valve(...)
+└── top.lfr              // `import "valve/Valve.lfr"
+                         // Valve v1(a, b, out, c);
+```
+
+Compile:
+
+```
+fluigi compile_lfr -o ./out top.lfr
+```
+
+No `--pre-load` is required because the import uses a path relative to
+`top.lfr`.
+
+## User-Defined JSON Components (Black Box)
+
+When your design uses a component that is *not* a 3DuF primitive (so the
+primitives server has no idea what its dimensions or terminals look like),
+you can ship its ParchMint description alongside your design and hand it
+to Fluigi as a **component library**. Fluigi will treat the component as
+a black box: its bounding box, params and external terminals are read
+out of your JSON, but its internal structure is not merged into the top
+design (that's a future pass).
+
+### File convention: `<EntityName>.json`
+
+For every custom entity `FooBar`, place a `FooBar.json` anywhere under a
+directory and hand that directory to Fluigi via `--component-library`.
+The filename stem *is* the entity name. If the top design is a MINT
+file, MINT will upper-case the entity to `FOOBAR` — Fluigi also matches
+entity names case-insensitively so a file named `FooBar.json` still
+resolves when the design refers to `FOOBAR`.
+
+### What Fluigi extracts
+
+From each `<EntityName>.json` (a valid ParchMint v1.2 device):
+
+- **Bounding box**: top-level `x-span` / `y-span` (preferred) or
+  `params.width` / `params.length`.
+- **External terminals**: every component whose `entity` is `"PORT"`.
+  - Terminal label = that PORT component's `name`.
+  - Terminal `(x, y)` = that PORT component's `params.position`.
+  - Terminal `layer` = `FLOW` / `CONTROL` depending on the first layer
+    that PORT component references.
+- **Default params**: `componentSpacing` is seeded from the JSON (or
+  defaulted to `1000`). Other keys are left to the top-level instance.
+
+### CLI flags
+
+```
+fluigi compile_mint        --component-library <dir>   <input.mint>
+fluigi compile_lfr         --component-library <dir>   <input.lfr>
+fluigi synthesize          --component-library <dir>   <input.lfr>
+fluigi synthesizeFromMINT  --component-library <dir>   <input.mint>
+```
+
+`--component-library` is repeatable (`--component-library dirA
+--component-library dirB`). Each directory is scanned recursively for
+`*.json`.
+
+### Error behaviour
+
+When `--component-library` is provided, any component whose `entity`
+is resolved by **neither** your library **nor** the primitives server is
+collected and reported once at the end of the pass:
+
+```
+Design references 1 unknown component type:
+  - MYGADGET                       used by 1 instance(s): gadget_1
+
+Searched component libraries:
+  - /path/to/your/lib
+  (library knows: MyValve, MyPump)
+
+Searched primitives server: http://localhost:6070
+
+Fix: place a '<EntityName>.json' file in one of the component-library
+directories (filename stem must match the entity name), or pass another
+directory via --component-library <dir>.
+```
+
+This keeps "unknown component" (your design references something nobody
+knows about) distinct from "network hiccup" (the primitives server is
+unreachable) — the latter degrades to a per-component warning so a dead
+server doesn't poison your compile.
+
+Without `--component-library`, the legacy behaviour is preserved:
+unrecognised components produce per-instance warnings but no hard error.
+
+### Demo
+
+A minimal, runnable example lives in
+`Microfluidics-Benchmarks/Quick_Examples/user_components_demo/`:
+
+```
+user_components_demo/
+├── lib/
+│   └── MyGadget.json     # defines entity MyGadget (4 terminals)
+├── TopDesign.mint        # uses MYGADGET gadget_1
+└── README.md
+```
+
+Run it with:
+
+```bash
+cd Microfluidics-Benchmarks/Quick_Examples/user_components_demo
+fluigi compile_mint TopDesign.mint --component-library lib/ -o out/
+```
+
 ## Running Benchmark Test Scripts
 
 ```

@@ -1,0 +1,18 @@
+// Minimal LFR case corresponding to valve behavior controlled by one control signal.
+module valve(
+    finput in_a, in_b,
+    foutput out_1,
+    control c
+);
+    distribute@(c)
+    begin
+        if (c == 1)
+        begin
+            out_1 <= in_a;
+        end
+        else
+        begin
+            out_1 <= in_b;
+        end
+    end
+endmodule

@@ -65,7 +65,7 @@ def print_netlist(output_path: Path, mint_device: MINTDevice) -> None:
     minttext = re.sub(r'\s+;', ';', mint_device.to_MINT())
 
     if "BLACK BOX" in minttext:
-        minttext = "Please add default length and width to blackbox component\n" + minttext
+        minttext = "# Please add default length and width to blackbox component\n" + minttext
 
     def modify_black_box(match):
         return f"{match.group(1)} length=[INSERT LENGTH] width=[INSERT WIDTH];"
@@ -73,7 +73,7 @@ def print_netlist(output_path: Path, mint_device: MINTDevice) -> None:
     minttext = re.sub(r"(BLACK BOX\s+\S+)\s*;", modify_black_box, minttext)
 
     if "REACTION CHAMBER" in minttext:
-        minttext = "Please add default length and width to reaction chamber component\n" + minttext
+        minttext = "# Please add default length and width to reaction chamber component\n" + minttext
 
     minttext = re.sub(r"(REACTION CHAMBER\s+\S+)\s*;", modify_black_box, minttext)
 

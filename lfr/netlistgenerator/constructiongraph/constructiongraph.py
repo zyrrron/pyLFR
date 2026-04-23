@@ -6,7 +6,7 @@ from typing import FrozenSet, List
 import networkx as nx
 
 from lfr import parameters
-from lfr.fig.fignode import IONode, IOType
+from lfr.fig.fignode import IONode, IOType, ValueNode
 from lfr.fig.fluidinteractiongraph import FluidInteractionGraph
 from lfr.netlistgenerator.constructiongraph.constructionnode import ConstructionNode
 
@@ -94,10 +94,17 @@ class ConstructionGraph(nx.DiGraph):
         are not mapped to flow primitives and are handled on the control layer.
         Auto-added waste outputs (out_waste_*) are also excluded from required coverage.
         """
-        # Flow nodes only: exclude CONTROL and waste outputs
+        # Flow nodes only: exclude CONTROL and waste outputs. Also exclude
+        # numeric-value nodes (ValueNode, e.g. the `50` in `x % 50`) and the
+        # internal FLOW_component_replacement_* bookkeeping nodes created during
+        # FIG simplification -- those are never mapped to a physical primitive
+        # but are part of the graph so they would otherwise be reported as
+        # uncovered and falsely kill every variant.
         fig_flow_node_ids = set()
         for nid in self._fig.nodes:
             if isinstance(nid, str) and nid.startswith("out_waste_"):
+                continue
+            if isinstance(nid, str) and nid.startswith("FLOW_component_replacement_"):
                 continue
             try:
                 node = self._fig.get_fignode(nid)
@@ -105,6 +112,8 @@ class ConstructionGraph(nx.DiGraph):
                 fig_flow_node_ids.add(nid)
                 continue
             if isinstance(node, IONode) and getattr(node, "type", None) == IOType.CONTROL:
+                continue
+            if isinstance(node, ValueNode):
                 continue
             fig_flow_node_ids.add(nid)
         for cn in self._construction_nodes:

@@ -1,0 +1,13 @@
+// Minimal LFR case corresponding to a 1-to-8 fanout TREE.
+// Matches the MINT primitive `TREE ... in=1 out=8` in QuickTest/default/MINT/tree.mint.
+// The single input is broadcast to an intermediate 8-wide flow bus and then
+// routed to eight outputs. The LFR compiler realizes the 1->N broadcast as a
+// physical TREE splitter during technology mapping.
+module tree(
+    finput in_1,
+    foutput [0:7] outputs
+);
+    flow [0:7] temp;
+    assign temp[0:7] = in_1;
+    assign outputs[0:7] = temp[0:7];
+endmodule

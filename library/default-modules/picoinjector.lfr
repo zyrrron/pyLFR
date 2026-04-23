@@ -1,0 +1,22 @@
+// Minimal LFR case corresponding to a PICOINJECTOR.
+// Matches the MINT primitive in QuickTest/default/MINT/picoinjector.mint.
+// A passing droplet stream `droplet_in` is merged with a reagent stream
+// `inject_in` when the electrode control signal `c` is asserted, yielding
+// the picoinjected droplet stream `droplet_out`.
+module picoinjector(
+    finput droplet_in, inject_in,
+    foutput droplet_out,
+    control c
+);
+    distribute@(c)
+    begin
+        if (c == 1)
+        begin
+            droplet_out <= droplet_in + inject_in;
+        end
+        else
+        begin
+            droplet_out <= droplet_in;
+        end
+    end
+endmodule

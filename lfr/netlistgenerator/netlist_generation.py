@@ -198,12 +198,20 @@ def generate_control_network(
             )
 
         # Add valve on this flow connection (on control layer).
-        # Default valve primitive is VALVE3D unless a different primitive is introduced later.
+        # VALVE3D uses valveRadius (not planar VALVE width/length). Explicit
+        # componentSpacing avoids fluigi's global default (9000 µm) being injected
+        # for every component when serializing to *_fromLFR.mint / JSON.
         if not any(v.ID == valve_id for v in scaffhold_device.device.valves):
             scaffhold_device.create_valve(
                 name=valve_id,
                 technology="VALVE3D",
-                params={"position": [-1, -1], "controlPort": cport_name},
+                params={
+                    "position": [-1, -1],
+                    "controlPort": cport_name,
+                    "componentSpacing": 1000,
+                    "valveRadius": 400,
+                    "height": 250,
+                },
                 layer_ids=[control_layer_id],
                 connection=conn,
                 valve_type=ValveType.NORMALLY_OPEN,

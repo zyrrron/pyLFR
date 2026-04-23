@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from typing import Callable, List, Optional, Union
 
@@ -25,20 +26,24 @@ def run_preprocessor(
     input_files: List[str],
     pre_load: List[str] = [],
     preprocessor_dump_input_path: Path = Path(PREPROCESSOR_DUMP_FILE_NAME).resolve(),
+    strict_module_names: bool = False,
 ) -> bool:
-    """Runs the preprocessor on the input files
+    """Runs the preprocessor on the input files.
 
     Args:
-        input_files (List[str]): input files to be preprocessed
-        pre_load (List[str], optional): Preload Directory. Defaults to [].
+        input_files: input files to be preprocessed.
+        pre_load: directories to scan recursively for reusable LFR modules
+            that can be pulled in via ``\`import "..."``.
+        preprocessor_dump_input_path: where to write the concatenated dump.
+        strict_module_names: when True, raise if any file violates the
+            "one file = one module, module name = file stem" convention.
 
     Returns:
-        bool: True if the preprocessor ran successfully, False otherwise
+        bool: True if the preprocessor ran successfully, False otherwise.
     """
     pre_load_file_list = pre_load
     print(pre_load_file_list)
 
-    # Utilize the prepreocessor to generate the input file
     preprocessor = PreProcessor(input_files, pre_load_file_list)
 
     if preprocessor.check_syntax_errors():
@@ -46,6 +51,10 @@ def run_preprocessor(
         return False
 
     preprocessor.process(preprocessor_dump_input_path)
+
+    preprocessor.check_filename_module_convention(strict=strict_module_names)
+    preprocessor.check_case_collisions(strict=strict_module_names)
+
     return True
 
 
@@ -66,7 +75,7 @@ def synthesize_module(
         Union[ModuleInstanceListener, PostProcessListener]: Returns the object model for the overall device module
     """
     # Modifiy this to translate relative path to absolute path in the future
-    finput = FileStream(str(input_path))
+    finput = FileStream(str(input_path), encoding="utf-8")
 
     lexer = lfrXLexer(finput)
 
@@ -145,8 +154,27 @@ def compile_lfr(
     preprocessor_dump_rel_input_path = PREPROCESSOR_DUMP_FILE_NAME
     preprocessor_dump_input_path = Path(preprocessor_dump_rel_input_path).resolve()
 
+    # Auto-merge library_path into the preload list so users who drop reusable
+    # .lfr modules under `--library-path` (or its default) can `import "..."`
+    # them without having to repeat the path as `--pre-load`.
+    effective_preload: List[str] = list(pre_load) if pre_load else []
+    if library_path:
+        lib_path_obj = Path(library_path)
+        if lib_path_obj.is_dir():
+            already_present = any(
+                Path(p).resolve() == lib_path_obj.resolve()
+                for p in effective_preload
+            )
+            if not already_present:
+                effective_preload.insert(0, str(lib_path_obj))
+
+    strict_module_names = os.environ.get("LFR_STRICT_MODULE_NAMES", "") == "1"
+
     preprocessor_success = run_preprocessor(
-        input_files, pre_load, preprocessor_dump_input_path
+        input_files,
+        effective_preload,
+        preprocessor_dump_input_path,
+        strict_module_names=strict_module_names,
     )
 
     if preprocessor_success is False:
@@ -200,7 +228,18 @@ def compile_lfr(
         unsized_devices = generate(mapping_listener.currentModule, library)
 
         if not unsized_devices:
-            print("Warning: no device variants generated (FIG may not be fully covered). Check compiler output above.")
+            print(
+                "Error: no device variants generated for module '{}'. "
+                "The Fluid Interaction Graph (FIG) could not be fully covered by "
+                "the available technology-library primitives; see the "
+                "'FIG not fully covered' lines above for the uncovered flow nodes. "
+                "Either extend the primitive library / technology mapping to cover "
+                "those nodes, or rewrite the LFR source using supported operations.".format(
+                    module_name
+                ),
+                file=sys.stderr,
+            )
+            return 1
 
         indices_to_output = list(range(len(unsized_devices)))
         if variant_index is not None:
