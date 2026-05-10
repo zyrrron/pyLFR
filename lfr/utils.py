@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import subprocess
 from pathlib import Path
 from typing import List
 
@@ -32,7 +33,15 @@ def printgraph(graph: nx.Graph, filename: str, output_dir: Path = None) -> None:
     print("output:", dot_path)
     try:
         nx.nx_agraph.to_agraph(graph_copy).write(str(dot_path))
-        os.system(f"dot -Tpdf {str(dot_path.absolute())} -o {str(pdf_path.absolute())}")
+        dot_abs = str(dot_path.resolve())
+        pdf_abs = str(pdf_path.resolve())
+        # Avoid shell word-splitting on spaces/apostrophes in OUTPUT_DIR paths.
+        subprocess.run(
+            ["dot", "-Tpdf", dot_abs, "-o", pdf_abs],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
     except (ImportError, Exception):
         # pygraphviz or dot not available; skip FIG visualization
         pass

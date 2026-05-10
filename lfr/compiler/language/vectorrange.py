@@ -30,10 +30,9 @@ class VectorRange(Generic[T]):
     def __getitem__(self, key):
         if isinstance(key, slice):
             raise NotImplementedError("Need to implement the slice")
-        if self.startindex <= self.endindex:
-            return self.vector[self.startindex + key]
-        else:
-            return self.vector[self.endindex - key]
+        # `self.vector` is indexed by Verilog-style bit index: vec[k] is the k-th
+        # element (LSB = k 0) regardless of whether the port was declared [N:0] or [0:N].
+        return self.vector[key]
 
     def __iter__(self):
         if self.startindex <= self.endindex:

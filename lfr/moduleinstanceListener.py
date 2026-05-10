@@ -64,15 +64,15 @@ class ModuleInstanceListener(DistBlockListener):
         module_io = self._module_to_import.io
         assert len(module_io) == num_variables
 
-        for i in range(num_variables):
-            assert len(module_io[i].vector_ref) == len(variables[i])
+        for k in range(num_variables):
+            assert len(module_io[k].vector_ref) == len(variables[k])
             # Since both the lengths are the same, just make 1-1 connections here
             # REDO - Use this if we need to vector range level mapping
             # self._io_mapping[module_io[i].id] = variables[i].id
-            there_vector_ref = module_io[i].vector_ref
-            here_vector_ref = variables[i]
-            for i in range(len(there_vector_ref)):
-                self._io_mapping[there_vector_ref[i].ID] = here_vector_ref[i].ID
+            there_vector_ref = module_io[k].vector_ref
+            here_vector_ref = variables[k]
+            for j in range(len(there_vector_ref)):
+                self._io_mapping[there_vector_ref[j].ID] = here_vector_ref[j].ID
 
     # def exitUnorderedioblock(self, ctx: lfrXParser.UnorderedioblockContext):
     #     num_variables = len(ctx.explicitinstanceiomapping())

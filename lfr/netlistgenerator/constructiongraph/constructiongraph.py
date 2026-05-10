@@ -6,7 +6,7 @@ from typing import FrozenSet, List
 import networkx as nx
 
 from lfr import parameters
-from lfr.fig.fignode import IONode, IOType, ValueNode
+from lfr.fig.fignode import Flow, IONode, IOType, ValueNode
 from lfr.fig.fluidinteractiongraph import FluidInteractionGraph
 from lfr.netlistgenerator.constructiongraph.constructionnode import ConstructionNode
 
@@ -122,9 +122,39 @@ class ConstructionGraph(nx.DiGraph):
                 nid = getattr(node, "ID", node)
                 if nid in fig_flow_node_ids:
                     fig_flow_node_ids.discard(nid)
+        self._relax_uncovered_plain_flow_junctions(fig_flow_node_ids)
         if fig_flow_node_ids:
             print(f"FIG not fully covered: uncovered flow node(s) = {fig_flow_node_ids}")
         return len(fig_flow_node_ids) == 0
+
+    def _relax_uncovered_plain_flow_junctions(self, uncovered: set) -> None:
+        """Drop plain FIG Flow nodes from *uncovered* when they are only routing.
+
+        Many valid designs expose only PORT/STORAGE/channel primitives on the FIG; plain
+        ``Flow`` vertices implement routing (merges, distribute temporaries, FIG splits).
+        Peel them iteratively: remove a plain Flow from *uncovered* if it has at least
+        one neighbor that is already not uncovered (i.e. lies on the covered side of the
+        frontier). This walks chains inward from covered primitives without clearing a
+        pocket that is still entirely uncovered (e.g. a subgraph only among uncovered
+        Storage / IO).
+        """
+        fig = self._fig
+        changed = True
+        while changed:
+            changed = False
+            for nid in list(uncovered):
+                try:
+                    node = fig.get_fignode(nid)
+                except Exception:
+                    continue
+                if type(node) is not Flow:
+                    continue
+                neighbors = set(fig.predecessors(nid)) | set(fig.successors(nid))
+                if not neighbors:
+                    continue
+                if any(m not in uncovered for m in neighbors):
+                    uncovered.discard(nid)
+                    changed = True
 
     def generate_variant(self, new_id: str) -> ConstructionGraph:
         # Generate a variant of the construction graph

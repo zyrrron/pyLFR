@@ -9,7 +9,7 @@ from lfr.netlistgenerator.connectingoption import ConnectingOption
 from lfr.netlistgenerator.constructiongraph.constructiongraph import ConstructionGraph
 from lfr.netlistgenerator.mappinglibrary import MappingLibrary
 from lfr.netlistgenerator.namegenerator import NameGenerator
-from lfr.netlistgenerator.primitive import PrimitiveType
+from lfr.netlistgenerator.primitive import PrimitiveType, ProceduralPrimitive
 
 
 def generate_device(
@@ -61,6 +61,19 @@ def generate_device(
             cn_component_mapping[node_id] = [
                 component.ID for component in netlist.components
             ]
+
+        elif cn.primitive.type is PrimitiveType.PROCEDURAL:
+            layer = scaffhold_device.device.layers[0]
+            proc = cn.primitive
+            if not isinstance(proc, ProceduralPrimitive):
+                raise TypeError(
+                    f"Expected ProceduralPrimitive for {node_id}, got {type(proc)}"
+                )
+            component = proc.get_procedural_component(
+                name_generator, layer, cn.fig_subgraph
+            )
+            scaffhold_device.device.add_component(component)
+            cn_component_mapping[node_id] = [component.ID]
 
     # Go through the edges and connect the components using the inputs and outputs of
     # the primitives

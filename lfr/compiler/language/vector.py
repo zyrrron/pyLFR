@@ -28,8 +28,6 @@ class Vector(Generic[T]):
                 for i in range(len(self)):
                     self.vec.append(vector_type(self.id + "_" + str(i)))
 
-            self.endindex = len(self.vec) - 1
-
         else:
             print("Creating a vector of type [None]")
 

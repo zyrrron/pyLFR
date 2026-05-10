@@ -108,6 +108,22 @@ def generate_mlsi_library() -> MappingLibrary:
     )
 
     library.add_operator_entry(cf_mixer, InteractionType.MIX)
+    # Fluid * numeric lowers to DILUTE on the FIG; primitives must advertise DILUTE, not MIX.
+    dilute_cf_mixer = Primitive(
+        "MIXER",
+        PrimitiveType.COMPONENT,
+        r"""{
+            v1:DILUTE
+        }""",
+        False,
+        False,
+        cf_mixer_inputs,
+        cf_mixer_outputs,
+        cf_mixer_loadings,
+        cf_mixer_carriers,
+        None,
+    )
+    library.add_operator_entry(dilute_cf_mixer, InteractionType.DILUTE)
 
     # MUX2
 
@@ -247,6 +263,19 @@ def generate_mars_library() -> MappingLibrary:
     )
 
     library.add_operator_entry(mixer, InteractionType.MIX)
+    dilute_mars_mixer = Primitive(
+        "MIXER",
+        PrimitiveType.COMPONENT,
+        "DILUTE",
+        False,
+        False,
+        mixer_inputs,
+        mixer_outputs,
+        mixer_loadings,
+        mixer_carriers,
+        None,
+    )
+    library.add_operator_entry(dilute_mars_mixer, InteractionType.DILUTE)
 
     # DIAMOND REACTION CHAMBER
 
@@ -502,6 +531,21 @@ def generate_dropx_library() -> MappingLibrary:
     )
 
     library.add_operator_entry(mixer, InteractionType.MIX)
+    dilute_dropx_mixer = Primitive(
+        "MIXER",
+        PrimitiveType.COMPONENT,
+        r"""{
+            v1:DILUTE
+        }""",
+        False,
+        False,
+        mixer_inputs,
+        mixer_outputs,
+        mixer_loadings,
+        mixer_carriers,
+        None,
+    )
+    library.add_operator_entry(dilute_dropx_mixer, InteractionType.DILUTE)
 
     # PICO INJECTOR
 

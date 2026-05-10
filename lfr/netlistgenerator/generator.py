@@ -70,7 +70,7 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
     elif library.name == "hmlp":
         raise NotImplementedError()
     else:
-        active_strategy = DummyStrategy(module.FIG)
+        active_strategy = DummyStrategy(module.FIG, library.name)
 
     # STEP 3 - Get all the technology mapping matches for the FIG
     # Do the reggie matching to find the mapping options
@@ -114,11 +114,9 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
     # # STEP 6.5 -Generate the matches for the flow subgraphs
     # add_flow_flow_matching_candidates(module.FIG, variants, active_strategy)
 
-    # # STEP 8 - Generate the edges in the construction graph
-    # print("Generating the construction graph edges...")
-    # for variant in variants:
+    # STEP 8 - Generate the edges in the construction graph
+    for variant in variants:
         generate_construction_graph_edges(module.FIG, variant)
-    #     variant.print_graph(f"{variant.ID}_construction_graph.dot")
 
     # STEP 6.10 - Before generating the device, delete all the variants with incomplete coverage of the FIG
     variants = [variant for variant in variants if variant.is_fig_fully_covered()]
@@ -212,23 +210,24 @@ def eliminate_explicit_match_alternates(
         for instance in explicit_mapping.instances:
             node_set = set()
 
-            # Check what kind of an instance this is
-            if isinstance(instance, NodeMappingInstance):
-                # This is a single node scenario
-                node_set.add(instance.node.ID)
+            # Check what kind of an instance this is (most specific first:
+            # NetworkMapping is a NodeMappingInstance but uses input/output lists,
+            # not the single .node field).
+            if isinstance(instance, NetworkMapping):
+                node_set = {n.ID for n in instance.input_nodes} | {
+                    n.ID for n in instance.output_nodes
+                }
             elif isinstance(instance, FluidicOperatorMapping):
                 node_set.add(instance.node.ID)
-
             elif isinstance(instance, StorageMapping):
                 node_set.add(instance.node.ID)
-
             elif isinstance(instance, PumpMapping):
                 node_set.add(instance.node.ID)
+            elif isinstance(instance, NodeMappingInstance):
+                node_set.add(instance.node.ID)
 
-            elif isinstance(instance, NetworkMapping):
-                node_set = set()
-                node_set.union(set([node.ID for node in instance.input_nodes]))
-                node_set.union(set([node.ID for node in instance.output_nodes]))
+            if not node_set:
+                continue
 
             if frozenset(node_set) in match_node_set_dict:
                 # This is an explicit match
@@ -249,26 +248,19 @@ def eliminate_explicit_match_alternates(
             # generated if we use the match string coordinates (use the match interface
             # for this) (function - generate_single_match)
 
-            # Check what kind of an instance this is
-            if isinstance(instance, NodeMappingInstance):
-                # This is a single node scenario
-                match_mapping[instance.node.ID] = "v1"
+            if isinstance(instance, NetworkMapping):
+                for i, node in enumerate(instance.input_nodes):
+                    match_mapping[node.ID] = f"vi{i}"
+                for i, node in enumerate(instance.output_nodes):
+                    match_mapping[node.ID] = f"vo{i}"
             elif isinstance(instance, FluidicOperatorMapping):
                 match_mapping[instance.node.ID] = "v1"
-
             elif isinstance(instance, StorageMapping):
                 match_mapping[instance.node.ID] = "v1"
-
             elif isinstance(instance, PumpMapping):
                 match_mapping[instance.node.ID] = "v1"
-
-            elif isinstance(instance, NetworkMapping):
-                for i in range(len(instance.input_nodes)):
-                    node = instance.input_nodes[i]
-                    match_mapping[node.ID] = f"vi{i}"
-                for i in range(len(instance.output_nodes)):
-                    node = instance.output_nodes[i]
-                    match_mapping[node.ID] = f"vo{i}"
+            elif isinstance(instance, NodeMappingInstance):
+                match_mapping[instance.node.ID] = "v1"
 
             # Rewrite the matchid for the explicit matches
             # based on the library entry

@@ -155,12 +155,21 @@ design (that's a future pass).
 
 ### File convention: `<EntityName>.json`
 
-For every custom entity `FooBar`, place a `FooBar.json` anywhere under a
-directory and hand that directory to Fluigi via `--component-library`.
-The filename stem *is* the entity name. If the top design is a MINT
-file, MINT will upper-case the entity to `FOOBAR` — Fluigi also matches
-entity names case-insensitively so a file named `FooBar.json` still
-resolves when the design refers to `FOOBAR`.
+For every custom entity `FooBar`, place a `FooBar.json` under a directory
+that Fluigi scans. By default, Fluigi always looks under the Neptune repo
+root at **`user_components/`** (create it if missing; it is tracked with
+a `.gitkeep`). Override that root with env **`FLUIGI_USER_COMPONENT_LIBRARY`**
+(absolute path, or relative to the shell working directory).
+
+You can add more search roots with **`--component-library <dir>`** (repeatable);
+those directories are scanned *after* the default root. Use
+**`--no-default-component-library`** if you want *only* your explicit
+`--component-library` paths.
+
+The filename stem *is* the entity name. If the top design is a MINT file,
+MINT will upper-case the entity to `FOOBAR` — Fluigi matches entity names
+case-insensitively so `FooBar.json` still resolves when the design refers
+to `FOOBAR`.
 
 ### What Fluigi extracts
 
@@ -179,21 +188,23 @@ From each `<EntityName>.json` (a valid ParchMint v1.2 device):
 ### CLI flags
 
 ```
-fluigi compile_mint        --component-library <dir>   <input.mint>
-fluigi compile_lfr         --component-library <dir>   <input.lfr>
-fluigi synthesize          --component-library <dir>   <input.lfr>
-fluigi synthesizeFromMINT  --component-library <dir>   <input.mint>
+fluigi compile_mint        [--component-library <dir>] ... <input.mint>
+fluigi compile_lfr         [--component-library <dir>] ... <input.lfr>
+fluigi synthesize          [--component-library <dir>] ... <input.lfr>
+fluigi synthesizeFromMINT  [--component-library <dir>] ... <input.mint>
 ```
 
 `--component-library` is repeatable (`--component-library dirA
 --component-library dirB`). Each directory is scanned recursively for
 `*.json`.
 
-### Error behaviour
+### Error behaviour (strict unknown components)
 
-When `--component-library` is provided, any component whose `entity`
-is resolved by **neither** your library **nor** the primitives server is
-collected and reported once at the end of the pass:
+**Strict** mode (collect unknown entities and raise at the end) turns on
+when **at least one** `--component-library` path was passed, or when env
+**`FLUIGI_STRICT_COMPONENTS=1`** is set. In strict mode, any component whose
+`entity` is resolved by **neither** the scanned library directories **nor**
+the primitives server is reported once at the end of the pass:
 
 ```
 Design references 1 unknown component type:
@@ -215,8 +226,11 @@ knows about) distinct from "network hiccup" (the primitives server is
 unreachable) — the latter degrades to a per-component warning so a dead
 server doesn't poison your compile.
 
-Without `--component-library`, the legacy behaviour is preserved:
-unrecognised components produce per-instance warnings but no hard error.
+If you rely **only** on the default `user_components/` scan and did **not**
+pass `--component-library`, strict mode is **off** by default so existing
+pipelines keep warn-and-skip semantics; set **`FLUIGI_STRICT_COMPONENTS=1`**
+to require every entity to resolve while still using only the default
+directory.
 
 ### Demo
 
