@@ -1,10 +1,10 @@
 DEVICE dx10_ref
 
-LAYER FLOW 
+LAYER flow
 
-PORT port_oil1 portRadius=2000;
-PORT port_water1 portRadius=2000;
-PORT port_oil2 portRadius=2000;
+PORT port_oil1portRadius=2000;
+PORT port_water1portRadius=2000;
+PORT port_oil2portRadius=2000;
 
 NOZZLE DROPLET GENERATOR nozzle_droplet_generator_1
     orificeSize=150
@@ -15,11 +15,11 @@ NOZZLE DROPLET GENERATOR nozzle_droplet_generator_1
     outputLength=5000
     height=300;
 
-CHANNEL connection_1 from port_oil1 to nozzle_droplet_generator_1 1 channelWidth=300;
-CHANNEL connection_2 from port_water1 to nozzle_droplet_generator_1 4 channelWidth=300;
-CHANNEL connection_3 from port_oil2 to nozzle_droplet_generator_1 3 channelWidth=300;
+CHANNEL connection_1 from port_oil1 to nozzle_droplet_generator_1 1channelWidth=300;
+CHANNEL connection_2 from port_water1 to nozzle_droplet_generator_1 4channelWidth=300;
+CHANNEL connection_3 from port_oil2 to nozzle_droplet_generator_1 3channelWidth=300;
 
-PORT port_injector1 portRadius=2000;
+PORT port_injector1portRadius=2000;
 
 PICOINJECTOR pico_injector_1
     height=300
@@ -35,7 +35,7 @@ PICOINJECTOR pico_injector_1
     electrodeLength=3000;
 
 CHANNEL connection_4 from nozzle_droplet_generator_1 2 to pico_injector_1 1 channelWidth=300;
-CHANNEL connection_5 from port_injector1 to pico_injector_1 3 channelWidth=300;
+CHANNEL connection_5 from port_injector1 to pico_injector_1 3channelWidth=300;
 
 DROPLET SORTER droplet_sorter_1
     height=300
@@ -58,11 +58,11 @@ DROPLET SORTER droplet_sorter_1
 
 CHANNEL connection_6 from pico_injector_1 2 to droplet_sorter_1 1 channelWidth=300;
 
-PORT port_out_1 portRadius=2000;
-PORT port_out_2 portRadius=2000;
+PORT port_out_1portRadius=2000;
+PORT port_out_2portRadius=2000;
 
 CHANNEL connection_7 from droplet_sorter_1 2 to port_out_1 channelWidth=300;
 CHANNEL connection_8 from droplet_sorter_1 3 to port_out_2 channelWidth=300;
 
-END LAYER
+END layer
 

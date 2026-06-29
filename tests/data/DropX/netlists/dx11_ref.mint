@@ -1,10 +1,10 @@
 DEVICE dx11_ref
 
-LAYER FLOW 
+LAYER flow
 
-PORT port_oil1 portRadius=2000;
-PORT port_water1 portRadius=2000;
-PORT port_oil2 portRadius=2000;
+PORT port_oil1portRadius=2000;
+PORT port_water1portRadius=2000;
+PORT port_oil2portRadius=2000;
 
 NOZZLE DROPLET GENERATOR nozzle_droplet_generator_1
     orificeSize=150
@@ -15,12 +15,12 @@ NOZZLE DROPLET GENERATOR nozzle_droplet_generator_1
     outputLength=5000
     height=300;
 
-CHANNEL connection_1 from port_oil1 to nozzle_droplet_generator_1 1 channelWidth=300;
-CHANNEL connection_2 from port_water1 to nozzle_droplet_generator_1 4 channelWidth=300;
-CHANNEL connection_3 from port_oil2 to nozzle_droplet_generator_1 3 channelWidth=300;
+CHANNEL connection_1 from port_oil1 to nozzle_droplet_generator_1 1channelWidth=300;
+CHANNEL connection_2 from port_water1 to nozzle_droplet_generator_1 4channelWidth=300;
+CHANNEL connection_3 from port_oil2 to nozzle_droplet_generator_1 3channelWidth=300;
 
 
-PORT port_injector1 portRadius=2000;
+PORT port_injector1portRadius=2000;
 PICOINJECTOR pico_injector_1
     height=300
     injectorWidth=1000
@@ -34,7 +34,7 @@ PICOINJECTOR pico_injector_1
     electrodeWidth=800
     electrodeLength=3000;
 
-CHANNEL connection_4 from port_injector1 to pico_injector_1 3 channelWidth=300;
+CHANNEL connection_4 from port_injector1 to pico_injector_1 3channelWidth=300;
 
 MIXER mix_1
     bendSpacing=600
@@ -75,10 +75,10 @@ MIXER mix_2
 
 CHANNEL connection_8 from droplet_sorter_1 2 to mix_2 1 channelWidth=300;
 
-PORT port_out_waste1 portRadius=2000;
+PORT port_out_waste1portRadius=2000;
 CHANNEL connection_15 from droplet_sorter_1 2 to port_out_waste1 channelWidth=300;
 
-PORT port_injector2 portRadius=2000;
+PORT port_injector2portRadius=2000;
 PICOINJECTOR pico_injector_2
     height=300
     injectorWidth=1000
@@ -93,7 +93,7 @@ PICOINJECTOR pico_injector_2
     electrodeLength=3000;
 
 CHANNEL connection_9 from mix_2 2 to pico_injector_2 1 channelWidth=300;
-CHANNEL connection_10 from port_injector2 to pico_injector_2 3 channelWidth=300;
+CHANNEL connection_10 from port_injector2 to pico_injector_2 3channelWidth=300;
 
 MIXER mix_3
     bendSpacing=600
@@ -125,11 +125,11 @@ DROPLET SORTER droplet_sorter_2
 
 CHANNEL connection_12 from mix_3 2 to droplet_sorter_2 1 channelWidth=300;
 
-PORT port_out_waste2 portRadius=2000;
-PORT port_out_keep portRadius=2000;
+PORT port_out_waste2portRadius=2000;
+PORT port_out_keepportRadius=2000;
 
 CHANNEL connection_13 from droplet_sorter_2 2 to port_out_waste2 channelWidth=300;
 CHANNEL connection_14 from droplet_sorter_2 3 to port_out_keep channelWidth=300;
 
-END LAYER
+END layer
 

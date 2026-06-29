@@ -1,15 +1,15 @@
 DEVICE dx4_ref
 
-LAYER FLOW 
+LAYER flow
 
-PORT port_oil1 portRadius=2000;
-PORT port_oil2 portRadius=2000;
-PORT port_water portRadius=2000;
+PORT port_oil1portRadius=2000;
+PORT port_oil2portRadius=2000;
+PORT port_waterportRadius=2000;
 
-PORT port_injector1 portRadius=2000;
-PORT port_injector2 portRadius=2000;
-PORT port_injector3 portRadius=2000;
-PORT port_injector4 portRadius=2000;
+PORT port_injector1portRadius=2000;
+PORT port_injector2portRadius=2000;
+PORT port_injector3portRadius=2000;
+PORT port_injector4portRadius=2000;
 
 MIXER mix_1
     bendSpacing=600
@@ -18,10 +18,10 @@ MIXER mix_1
     bendLength=2000
     height=300;
 
-CHANNEL connection_4 from port_injector1 to mix_1 1 channelWidth=50;
-CHANNEL connection_5 from port_injector2 to mix_1 1 channelWidth=50;
-CHANNEL connection_6 from port_injector3 to mix_1 1 channelWidth=50;
-CHANNEL connection_7 from port_injector4 to mix_1 1 channelWidth=50;
+CHANNEL connection_4 from port_injector1 to mix_1 1channelWidth=50;
+CHANNEL connection_5 from port_injector2 to mix_1 1channelWidth=50;
+CHANNEL connection_6 from port_injector3 to mix_1 1channelWidth=50;
+CHANNEL connection_7 from port_injector4 to mix_1 1channelWidth=50;
 
 NOZZLE DROPLET GENERATOR nozzle_droplet_generator_1
     orificeSize=150
@@ -32,9 +32,9 @@ NOZZLE DROPLET GENERATOR nozzle_droplet_generator_1
     outputLength=5000
     height=300;
 
-CHANNEL connection_1 from port_oil1 to nozzle_droplet_generator_1 1 channelWidth=300;
-CHANNEL connection_2 from port_oil2 to nozzle_droplet_generator_1 3 channelWidth=300;
-CHANNEL connection_3 from port_water to nozzle_droplet_generator_1 4 channelWidth=300;
+CHANNEL connection_1 from port_oil1 to nozzle_droplet_generator_1 1channelWidth=300;
+CHANNEL connection_2 from port_oil2 to nozzle_droplet_generator_1 3channelWidth=300;
+CHANNEL connection_3 from port_water to nozzle_droplet_generator_1 4channelWidth=300;
 
 PICOINJECTOR pico_injector_1
     height=300
@@ -115,11 +115,11 @@ DROPLET SORTER droplet_sorter_3
 CHANNEL connection_11 from droplet_sorter_1 2 to droplet_sorter_2 1 channelWidth=300;
 CHANNEL connection_12 from droplet_sorter_1 3 to droplet_sorter_3 1 channelWidth=300;
 
-PORT port_out_waste1 portRadius=2000;
-PORT port_out_waste2 portRadius=2000;
+PORT port_out_waste1portRadius=2000;
+PORT port_out_waste2portRadius=2000;
 
-PORT port_out_keep1 portRadius=2000;
-PORT port_out_keep2 portRadius=2000;
+PORT port_out_keep1portRadius=2000;
+PORT port_out_keep2portRadius=2000;
 
 CHANNEL connection_13 from droplet_sorter_2 2 to port_out_waste1 channelWidth=300;
 CHANNEL connection_14 from droplet_sorter_3 2 to port_out_waste2 channelWidth=300;
@@ -127,5 +127,5 @@ CHANNEL connection_14 from droplet_sorter_3 2 to port_out_waste2 channelWidth=30
 CHANNEL connection_15 from droplet_sorter_2 3 to port_out_keep1 channelWidth=300;
 CHANNEL connection_16 from droplet_sorter_3 3 to port_out_keep2 channelWidth=300;
 
-END LAYER
+END layer
 

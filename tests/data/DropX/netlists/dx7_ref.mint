@@ -1,10 +1,10 @@
 DEVICE dx7_ref
 
-LAYER FLOW 
+LAYER flow
 
-PORT port_oil1 portRadius=2000;
-PORT port_oil2 portRadius=2000;
-PORT port_water1 portRadius=2000;
+PORT port_oil1portRadius=2000;
+PORT port_oil2portRadius=2000;
+PORT port_water1portRadius=2000;
 
 NOZZLE DROPLET GENERATOR nozzle_droplet_generator_1
     orificeSize=150
@@ -15,13 +15,13 @@ NOZZLE DROPLET GENERATOR nozzle_droplet_generator_1
     outputLength=5000
     height=300;
 
-CHANNEL connection_1 from port_oil1 to nozzle_droplet_generator_1 1 channelWidth=300;
-CHANNEL connection_2 from port_oil2 to nozzle_droplet_generator_1 3 channelWidth=300;
-CHANNEL connection_3 from port_water1 to nozzle_droplet_generator_1 4 channelWidth=300;
+CHANNEL connection_1 from port_oil1 to nozzle_droplet_generator_1 1channelWidth=300;
+CHANNEL connection_2 from port_oil2 to nozzle_droplet_generator_1 3channelWidth=300;
+CHANNEL connection_3 from port_water1 to nozzle_droplet_generator_1 4channelWidth=300;
 
-PORT port_oil3 portRadius=2000;
-PORT port_oil4 portRadius=2000;
-PORT port_water2 portRadius=2000;
+PORT port_oil3portRadius=2000;
+PORT port_oil4portRadius=2000;
+PORT port_water2portRadius=2000;
 NOZZLE DROPLET GENERATOR nozzle_droplet_generator_2
     orificeSize=150
     orificeLength=375
@@ -31,9 +31,9 @@ NOZZLE DROPLET GENERATOR nozzle_droplet_generator_2
     outputLength=5000
     height=300;
 
-CHANNEL connection_4 from port_oil3 to nozzle_droplet_generator_2 1 channelWidth=300;
-CHANNEL connection_5 from port_oil4 to nozzle_droplet_generator_2 3 channelWidth=300;
-CHANNEL connection_6 from port_water2 to nozzle_droplet_generator_2 4 channelWidth=300;
+CHANNEL connection_4 from port_oil3 to nozzle_droplet_generator_2 1channelWidth=300;
+CHANNEL connection_5 from port_oil4 to nozzle_droplet_generator_2 3channelWidth=300;
+CHANNEL connection_6 from port_water2 to nozzle_droplet_generator_2 4channelWidth=300;
 
 DROPLET MERGER droplet_merger_1
     height=200
@@ -52,8 +52,8 @@ DROPLET MERGER droplet_merger_1
 CHANNEL connection_7 from nozzle_droplet_generator_1 2 to droplet_merger_1 1 channelWidth=300;
 CHANNEL connection_8 from nozzle_droplet_generator_2 2 to droplet_merger_1 1 channelWidth=300;
 
-PORT port_injector1 portRadius=2000;
-PORT port_injector2 portRadius=2000;
+PORT port_injector1portRadius=2000;
+PORT port_injector2portRadius=2000;
 
 MIXER mixer_1
     bendSpacing=600
@@ -62,8 +62,8 @@ MIXER mixer_1
     bendLength=2000
     height=300;
 
-CHANNEL connection_9 from port_injector1 to mixer_1 1 channelWidth=300;
-CHANNEL connection_10 from port_injector2 to mixer_1 1 channelWidth=300;
+CHANNEL connection_9 from port_injector1 to mixer_1 1channelWidth=300;
+CHANNEL connection_10 from port_injector2 to mixer_1 1channelWidth=300;
 
 PICOINJECTOR picoinjector_1
     height=300
@@ -101,13 +101,13 @@ DROPLET SORTER droplet_sorter_1
 
 CHANNEL connection_12 from picoinjector_1 2 to droplet_sorter_1 1 channelWidth=300;
 
-PORT port_out_waste portRadius=2000;
-PORT port_out_keep portRadius=2000;
+PORT port_out_wasteportRadius=2000;
+PORT port_out_keepportRadius=2000;
 
 CHANNEL connection_13 from droplet_sorter_1 2 to port_out_waste channelWidth=300;
 CHANNEL connection_14 from droplet_sorter_1 3 to port_out_keep channelWidth=300;
 
 CHANNEL connection_15 from droplet_merger_1 2 to picoinjector_1 1 channelWidth=300;
 
-END LAYER
+END layer
 

@@ -9,6 +9,6 @@ module nozzle_droplet_generator(
     foutput droplet_out
 );
     #MAP "NOZZLE DROPLET GENERATOR" "&"
-    #CONSTRAIN "&" DROPLET_RATE = 30 Hz
+    #CONSTRAIN "&" droplet_rate = 30 hz
     assign droplet_out = oil_in & water_in;
 endmodule
