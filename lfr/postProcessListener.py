@@ -4,10 +4,11 @@ from lfr.antlrgen.lfr.lfrXParser import lfrXParser
 from lfr.fig.fignode import FIGNode
 from lfr.fig.interaction import FluidProcessInteraction, Interaction
 from lfr.moduleinstanceListener import ModuleInstanceListener
-from lfr.postprocessor.constraints import Constraint
+from lfr.postprocessor.constraints import MaterialConstraint, PerformanceConstraint
 from lfr.postprocessor.mapping import (
     FluidicOperatorMapping,
     NetworkMapping,
+    NodeMappingInstance,
     NodeMappingTemplate,
     PumpMapping,
     StorageMapping,
@@ -50,7 +51,7 @@ class PostProcessListener(ModuleInstanceListener):
             else:
                 unit = None
 
-            perf_constraint = Constraint()
+            perf_constraint = PerformanceConstraint()
             if unit is not None:
                 perf_constraint.unit = unit
 
@@ -72,6 +73,39 @@ class PostProcessListener(ModuleInstanceListener):
                 )
 
             self._current_mappings[operator].constraints.append(perf_constraint)
+
+    def exitMaterialmappingdirective(
+        self, ctx: lfrXParser.MaterialmappingdirectiveContext
+    ):
+        super().exitMaterialmappingdirective(ctx)
+        if self.currentModule is None:
+            raise ValueError("No module found while processing #MATERIAL")
+
+        identifier_token = ctx.ID(0)
+        if identifier_token is None:
+            raise ValueError("No identifier found for #MATERIAL")
+        identifier = identifier_token.getText()
+        if ctx.materialtype is None:
+            raise ValueError("No material type found for #MATERIAL")
+        material_type = ctx.materialtype.text
+        if material_type is None:
+            raise ValueError("material type token is None")
+
+        node = self.currentModule.get_fluid(identifier)
+        if node is None:
+            raise ValueError(
+                "Could not find identifier '{}' used in #MATERIAL".format(identifier)
+            )
+
+        mapping = NodeMappingTemplate()
+        mapping_instance = NodeMappingInstance()
+        mapping_instance.node = node
+        mapping.instances.append(mapping_instance)
+
+        material_constraint = MaterialConstraint()
+        material_constraint.set_material(identifier, material_type)
+        mapping.constraints.append(material_constraint)
+        self.currentModule.mappings.append(mapping)
 
     def exitTechnologymappingdirective(
         self, ctx: lfrXParser.TechnologymappingdirectiveContext

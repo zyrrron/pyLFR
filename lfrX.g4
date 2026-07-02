@@ -40,7 +40,23 @@ elseBlock: 'else' statementBlock;
 elseIfBlock:
 	'else' 'if' '(' distributeCondition ')' statementBlock;
 
-distributeCondition: lhs binary_module_path_operator distvalue;
+distributeCondition: distributeOrExpr;
+
+distributeOrExpr: distributeAndExpr ('||' distributeAndExpr)*;
+
+distributeAndExpr: distributeBitOrExpr ('&&' distributeBitOrExpr)*;
+
+distributeBitOrExpr: distributeBitXorExpr ('|' distributeBitXorExpr)*;
+
+distributeBitXorExpr:
+	distributeBitAndExpr (('^' | '^~' | '~^') distributeBitAndExpr)*;
+
+distributeBitAndExpr: distributeEqualityExpr ('&' distributeEqualityExpr)*;
+
+distributeEqualityExpr:
+	distributePrimary (('==' | '!=') distributePrimary)*;
+
+distributePrimary: '(' distributeCondition ')' | number | variables;
 
 statementBlock:
 	'begin' distributionassignstat+ 'end'

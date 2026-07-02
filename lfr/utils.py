@@ -71,7 +71,9 @@ def print_netlist(output_path: Path, mint_device: MINTDevice) -> None:
     """Stores the device as a MINT file"""
 
     # Generate the MINT file from the pyparchmint device
-    minttext = re.sub(r'\s+;', ';', mint_device.to_MINT())
+    # Keep writer spacing intact; collapsing whitespace before ';' can
+    # accidentally alter token boundaries needed by strict MINT parsing.
+    minttext = mint_device.to_MINT()
 
     if "BLACK BOX" in minttext:
         minttext = "# Please add default length and width to blackbox component\n" + minttext

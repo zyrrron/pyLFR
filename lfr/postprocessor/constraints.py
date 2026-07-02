@@ -129,6 +129,20 @@ class FunctionalConstraint(Constraint):
 class MaterialConstraint(Constraint):
     def __init__(self) -> None:
         super().__init__()
+        self._identifier: Optional[str] = None
+        self._material_type: Optional[str] = None
+
+    @property
+    def identifier(self) -> Optional[str]:
+        return self._identifier
+
+    @property
+    def material_type(self) -> Optional[str]:
+        return self._material_type
+
+    def set_material(self, identifier: str, material_type: str) -> None:
+        self._identifier = identifier
+        self._material_type = material_type
 
 
 class ConstraintList:

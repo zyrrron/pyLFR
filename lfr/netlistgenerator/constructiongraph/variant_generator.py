@@ -1,3 +1,4 @@
+import copy
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from lfr.fig.fignode import IONode, IOType
@@ -14,6 +15,7 @@ from lfr.netlistgenerator.gen_strategies.genstrategy import GenStrategy
 from lfr.netlistgenerator.mappinglibrary import MappingLibrary, MatchPatternEntry
 from lfr.netlistgenerator.namegenerator import NameGenerator
 from lfr.postprocessor.mapping import NodeMappingTemplate
+from lfr.postprocessor.constraints import Constraint
 
 
 def generate_match_variants(
@@ -22,6 +24,7 @@ def generate_match_variants(
     library: MappingLibrary,
     active_strategy: GenStrategy,
     explicit_mapping_covers: Optional[List[Set[str]]] = None,
+    explicit_constraints_by_cover: Optional[Dict[FrozenSet[str], List[Constraint]]] = None,
 ) -> List[ConstructionGraph]:
     """
     Generate all possible match variants of a given graph.
@@ -154,6 +157,13 @@ def generate_match_variants(
         )
 
         fig_nodes_set = frozenset(list(match[2].keys()))
+        if (
+            explicit_constraints_by_cover is not None
+            and fig_nodes_set in explicit_constraints_by_cover
+        ):
+            node.constraints = [
+                copy.deepcopy(c) for c in explicit_constraints_by_cover[fig_nodes_set]
+            ]
 
         # Check if Variant Tree has a saved divergence for this node, we do a new
         # divergence branch and create a new variant.

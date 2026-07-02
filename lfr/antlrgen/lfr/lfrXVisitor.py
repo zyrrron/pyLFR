@@ -1,4 +1,4 @@
-# Generated from lfrX.g4 by ANTLR 4.10
+# Generated from ./lfrX.g4 by ANTLR 4.10.1
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .lfrXParser import lfrXParser
@@ -86,6 +86,41 @@ class lfrXVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by lfrXParser#distributeCondition.
     def visitDistributeCondition(self, ctx:lfrXParser.DistributeConditionContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by lfrXParser#distributeOrExpr.
+    def visitDistributeOrExpr(self, ctx:lfrXParser.DistributeOrExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by lfrXParser#distributeAndExpr.
+    def visitDistributeAndExpr(self, ctx:lfrXParser.DistributeAndExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by lfrXParser#distributeBitOrExpr.
+    def visitDistributeBitOrExpr(self, ctx:lfrXParser.DistributeBitOrExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by lfrXParser#distributeBitXorExpr.
+    def visitDistributeBitXorExpr(self, ctx:lfrXParser.DistributeBitXorExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by lfrXParser#distributeBitAndExpr.
+    def visitDistributeBitAndExpr(self, ctx:lfrXParser.DistributeBitAndExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by lfrXParser#distributeEqualityExpr.
+    def visitDistributeEqualityExpr(self, ctx:lfrXParser.DistributeEqualityExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by lfrXParser#distributePrimary.
+    def visitDistributePrimary(self, ctx:lfrXParser.DistributePrimaryContext):
         return self.visitChildren(ctx)
 
 

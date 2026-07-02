@@ -1,4 +1,4 @@
-# Generated from lfrX.g4 by ANTLR 4.10
+# Generated from ./lfrX.g4 by ANTLR 4.10.1
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .lfrXParser import lfrXParser
@@ -149,6 +149,69 @@ class lfrXListener(ParseTreeListener):
 
     # Exit a parse tree produced by lfrXParser#distributeCondition.
     def exitDistributeCondition(self, ctx:lfrXParser.DistributeConditionContext):
+        pass
+
+
+    # Enter a parse tree produced by lfrXParser#distributeOrExpr.
+    def enterDistributeOrExpr(self, ctx:lfrXParser.DistributeOrExprContext):
+        pass
+
+    # Exit a parse tree produced by lfrXParser#distributeOrExpr.
+    def exitDistributeOrExpr(self, ctx:lfrXParser.DistributeOrExprContext):
+        pass
+
+
+    # Enter a parse tree produced by lfrXParser#distributeAndExpr.
+    def enterDistributeAndExpr(self, ctx:lfrXParser.DistributeAndExprContext):
+        pass
+
+    # Exit a parse tree produced by lfrXParser#distributeAndExpr.
+    def exitDistributeAndExpr(self, ctx:lfrXParser.DistributeAndExprContext):
+        pass
+
+
+    # Enter a parse tree produced by lfrXParser#distributeBitOrExpr.
+    def enterDistributeBitOrExpr(self, ctx:lfrXParser.DistributeBitOrExprContext):
+        pass
+
+    # Exit a parse tree produced by lfrXParser#distributeBitOrExpr.
+    def exitDistributeBitOrExpr(self, ctx:lfrXParser.DistributeBitOrExprContext):
+        pass
+
+
+    # Enter a parse tree produced by lfrXParser#distributeBitXorExpr.
+    def enterDistributeBitXorExpr(self, ctx:lfrXParser.DistributeBitXorExprContext):
+        pass
+
+    # Exit a parse tree produced by lfrXParser#distributeBitXorExpr.
+    def exitDistributeBitXorExpr(self, ctx:lfrXParser.DistributeBitXorExprContext):
+        pass
+
+
+    # Enter a parse tree produced by lfrXParser#distributeBitAndExpr.
+    def enterDistributeBitAndExpr(self, ctx:lfrXParser.DistributeBitAndExprContext):
+        pass
+
+    # Exit a parse tree produced by lfrXParser#distributeBitAndExpr.
+    def exitDistributeBitAndExpr(self, ctx:lfrXParser.DistributeBitAndExprContext):
+        pass
+
+
+    # Enter a parse tree produced by lfrXParser#distributeEqualityExpr.
+    def enterDistributeEqualityExpr(self, ctx:lfrXParser.DistributeEqualityExprContext):
+        pass
+
+    # Exit a parse tree produced by lfrXParser#distributeEqualityExpr.
+    def exitDistributeEqualityExpr(self, ctx:lfrXParser.DistributeEqualityExprContext):
+        pass
+
+
+    # Enter a parse tree produced by lfrXParser#distributePrimary.
+    def enterDistributePrimary(self, ctx:lfrXParser.DistributePrimaryContext):
+        pass
+
+    # Exit a parse tree produced by lfrXParser#distributePrimary.
+    def exitDistributePrimary(self, ctx:lfrXParser.DistributePrimaryContext):
         pass
 
 

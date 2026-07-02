@@ -1,3 +1,4 @@
+import copy
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from pymint.mintdevice import MINTDevice
@@ -31,6 +32,7 @@ from lfr.postprocessor.mapping import (
     PumpMapping,
     StorageMapping,
 )
+from lfr.postprocessor.constraints import Constraint
 from lfr import parameters
 from lfr.utils import printgraph
 from lfr.fig.autocomplete import connect_orphan_IO
@@ -87,8 +89,12 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
     # STEP 4 - Eliminate the matches that are exactly the same as the explicit matches
     # Get the explicit mapping and find the explicit mappings here
     explicit_mappings = module.get_explicit_mappings()
-    matches, explict_cover_sets = eliminate_explicit_match_alternates(
-        matches, explicit_mappings, library
+    (
+        matches,
+        explict_cover_sets,
+        explicit_constraints_by_cover,
+    ) = eliminate_explicit_match_alternates(
+        matches, explicit_mappings, library, fig=module.FIG
     )
 
     print(
@@ -103,7 +109,12 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
 
     # STEP 6 - Generate the mapping variants
     variants = generate_match_variants(
-        matches, module.FIG, library, active_strategy, explict_cover_sets
+        matches,
+        module.FIG,
+        library,
+        active_strategy,
+        explict_cover_sets,
+        explicit_constraints_by_cover=explicit_constraints_by_cover,
     )
 
     for index, variant in enumerate(variants, start=0):
@@ -171,7 +182,12 @@ def eliminate_explicit_match_alternates(
     matches: List[LibraryPrimitivesEntry],
     explict_mappings: List[NodeMappingTemplate],
     library: MappingLibrary,
-) -> Tuple[List[LibraryPrimitivesEntry], List[Set[str]]]:
+    fig=None,
+) -> Tuple[
+    List[LibraryPrimitivesEntry],
+    List[Set[str]],
+    Dict[FrozenSet[str], List[Constraint]],
+]:
     """Eliminates the alternatives for explicit matches from the list of matches.
 
     Args:
@@ -197,15 +213,15 @@ def eliminate_explicit_match_alternates(
 
     # This is the set of cover sets that are found and returned
     explicit_cover_sets: List[Set[str]] = []
+    explicit_constraints_by_cover: Dict[FrozenSet[str], List[Constraint]] = {}
+
+    alias_map = {}
+    if fig is not None:
+        alias_map = getattr(fig, "_removed_to_surviving", {}) or {}
 
     # Go through each of the explict matches, generate a subgraph and compare against
     # all the matches
     for explicit_mapping in explict_mappings:
-        # Only do the explicit mapping if the the mapping object has a technology
-        # associated with it else skip it
-        if explicit_mapping.technology_string is None:
-            continue
-
         # Generate a subgraph for each of the mapping instance fig
         for instance in explicit_mapping.instances:
             node_set = set()
@@ -229,15 +245,27 @@ def eliminate_explicit_match_alternates(
             if not node_set:
                 continue
 
-            if frozenset(node_set) in match_node_set_dict:
+            normalized_node_set = {alias_map.get(node_id, node_id) for node_id in node_set}
+            cover_key = frozenset(normalized_node_set)
+            if explicit_mapping.constraints:
+                explicit_constraints_by_cover.setdefault(cover_key, []).extend(
+                    [copy.deepcopy(c) for c in explicit_mapping.constraints]
+                )
+
+            # #MATERIAL-style mappings intentionally carry no technology override:
+            # they only contribute constraints/metadata to matched construction nodes.
+            if explicit_mapping.technology_string is None:
+                continue
+
+            if cover_key in match_node_set_dict:
                 # This is an explicit match
                 # Remove the explicit match from the list of matches
                 print(
                     "Eliminating match: {}".format(
-                        match_node_set_dict[frozenset(node_set)]
+                        match_node_set_dict[cover_key]
                     )
                 )
-                match_node_set_dict[frozenset(node_set)].clear()
+                match_node_set_dict[cover_key].clear()
 
             # Now generate a match tuple for this instance
             match_primitive_uid: Optional[str] = None
@@ -250,23 +278,27 @@ def eliminate_explicit_match_alternates(
 
             if isinstance(instance, NetworkMapping):
                 for i, node in enumerate(instance.input_nodes):
-                    match_mapping[node.ID] = f"vi{i}"
+                    match_mapping[alias_map.get(node.ID, node.ID)] = f"vi{i}"
                 for i, node in enumerate(instance.output_nodes):
-                    match_mapping[node.ID] = f"vo{i}"
+                    match_mapping[alias_map.get(node.ID, node.ID)] = f"vo{i}"
             elif isinstance(instance, FluidicOperatorMapping):
-                match_mapping[instance.node.ID] = "v1"
+                node_id = alias_map.get(instance.node.ID, instance.node.ID)
+                match_mapping[node_id] = "v1"
             elif isinstance(instance, StorageMapping):
-                match_mapping[instance.node.ID] = "v1"
+                node_id = alias_map.get(instance.node.ID, instance.node.ID)
+                match_mapping[node_id] = "v1"
             elif isinstance(instance, PumpMapping):
-                match_mapping[instance.node.ID] = "v1"
+                node_id = alias_map.get(instance.node.ID, instance.node.ID)
+                match_mapping[node_id] = "v1"
             elif isinstance(instance, NodeMappingInstance):
-                match_mapping[instance.node.ID] = "v1"
+                node_id = alias_map.get(instance.node.ID, instance.node.ID)
+                match_mapping[node_id] = "v1"
 
             # Rewrite the matchid for the explicit matches
             # based on the library entry
-            if frozenset(node_set) in match_node_set_dict:
+            if cover_key in match_node_set_dict:
                 # Find the primitive that matches the technology string
-                for primitive in match_node_set_dict[frozenset(node_set)]:
+                for primitive in match_node_set_dict[cover_key]:
                     if primitive[1] == explicit_mapping.technology_string:
                         # This is the match we want to replace
                         # Replace the match id with the match tuple
@@ -275,10 +307,10 @@ def eliminate_explicit_match_alternates(
                 # Remove the explicit match from the list of matches
                 print(
                     "Eliminating match: {}".format(
-                        match_node_set_dict[frozenset(node_set)]
+                        match_node_set_dict[cover_key]
                     )
                 )
-                match_node_set_dict[frozenset(node_set)].clear()
+                match_node_set_dict[cover_key].clear()
 
             # If the match_primitive ID is None, we need to query a match from the
             # library
@@ -305,7 +337,7 @@ def eliminate_explicit_match_alternates(
 
             explicit_matches.append(match_tuple)
             # This is something we need to return to the to the caller
-            explicit_cover_sets.append(node_set)
+            explicit_cover_sets.append(set(normalized_node_set))
 
     # Modify the matches list
     eliminated_matches = []
@@ -316,7 +348,7 @@ def eliminate_explicit_match_alternates(
     # Add the explicit matches to the list of matches
     eliminated_matches.extend(explicit_matches)
 
-    return (eliminated_matches, explicit_cover_sets)
+    return (eliminated_matches, explicit_cover_sets, explicit_constraints_by_cover)
 
 def __check_if_passthrough(sub) -> bool:
     """Checks if its a passthrough chain

@@ -10,6 +10,7 @@ from lfr.netlistgenerator.constructiongraph.constructiongraph import Constructio
 from lfr.netlistgenerator.mappinglibrary import MappingLibrary
 from lfr.netlistgenerator.namegenerator import NameGenerator
 from lfr.netlistgenerator.primitive import PrimitiveType, ProceduralPrimitive
+from lfr.postprocessor.constraints import MaterialConstraint
 
 
 def generate_device(
@@ -47,12 +48,14 @@ def generate_device(
 
             # Add to the scaffhold device
             scaffhold_device.device.add_component(component)
+            _apply_constraints_to_components(cn.constraints, [component])
 
             # Add to the component mapping
             cn_component_mapping[node_id] = [component.ID]
 
         elif cn.primitive.type is PrimitiveType.NETLIST:
             netlist = cn.primitive.get_default_netlist(cn.ID, name_generator)
+            _apply_constraints_to_components(cn.constraints, list(netlist.components))
 
             # Merge the netlist into the scaffhold device
             scaffhold_device.device.merge_netlist(netlist)
@@ -72,6 +75,7 @@ def generate_device(
             component = proc.get_procedural_component(
                 name_generator, layer, cn.fig_subgraph
             )
+            _apply_constraints_to_components(cn.constraints, [component])
             scaffhold_device.device.add_component(component)
             cn_component_mapping[node_id] = [component.ID]
 
@@ -122,6 +126,39 @@ def generate_device(
             raise NotImplementedError("Multiple sources not implemented")
 
     return cn_component_mapping
+
+
+def _apply_constraints_to_components(constraints, components) -> None:
+    """Apply LFR directive constraints as component params metadata."""
+    if not constraints or not components:
+        return
+
+    for component in components:
+        params = component.params.data
+        for constraint in constraints:
+            if isinstance(constraint, MaterialConstraint):
+                material_type = constraint.material_type
+                if material_type is not None:
+                    params["material"] = material_type
+                continue
+
+            key = constraint.key
+            if key == "":
+                continue
+            key_norm = key.lower()
+            target = constraint.get_target_value()
+            min_value = constraint.get_min_value()
+            max_value = constraint.get_max_value()
+            unit = constraint.unit
+
+            if target is not None:
+                params[key_norm] = target
+            if min_value is not None:
+                params[f"{key_norm}Min"] = min_value
+            if max_value is not None:
+                params[f"{key_norm}Max"] = max_value
+            if unit is not None:
+                params[f"{key_norm}Unit"] = unit
 
 
 def _fig_id_from_node(n) -> str:
