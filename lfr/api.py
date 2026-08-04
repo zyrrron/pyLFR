@@ -266,4 +266,18 @@ def compile_lfr(
             print_netlist(output_path, unsized_device)
             serialize_netlist(output_path, unsized_device)
 
+        # After MINT/JSON are written: annotate port-count corrections and validate
+        # that expanders (MUX/distribute/metering/sorter) did not drop required IO/links.
+        try:
+            from fluigi.control_ports import annotate_generated_artifacts
+
+            primary_lfr = Path(input_files[0]) if input_files else None
+            annotate_generated_artifacts(
+                Path(parameters.OUTPUT_DIR),
+                lfr_path=primary_lfr if primary_lfr and primary_lfr.is_file() else None,
+                validate=True,
+            )
+        except Exception as exc:  # pragma: no cover - annotation must not crash compile
+            print(f"Warning: post-compile port annotation/validate skipped: {exc}")
+
     return 0

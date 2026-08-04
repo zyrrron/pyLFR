@@ -221,6 +221,17 @@ def generate_control_network(
             control_layer_id, "control", 1, MINTLayerType.CONTROL
         )
 
+    # Logical control bit width from distribute state-table headers (e.g. 3-bit mux select).
+    # Physical MINT/JSON uses one Cport per gated flow arm (one-hot valves) after tree expansion.
+    logical_bits = 0
+    seen_headers: Set[str] = set()
+    for st in fig.state_tables:
+        for h in getattr(st, "headers", []) or []:
+            if h not in seen_headers:
+                seen_headers.add(h)
+                logical_bits += 1
+
+    created_cports = 0
     for idx, ((fig_src, fig_tgt), valve_id, _ctrl_id) in enumerate(control_entries):
         src_comps = resolve_fig_id(fig_src)
         tgt_comps = resolve_fig_id(fig_tgt)
@@ -246,6 +257,7 @@ def generate_control_network(
                 params={"position": [-1, -1]},
                 layer_ids=[control_layer_id],
             )
+            created_cports += 1
 
         # Add valve on this flow connection (on control layer).
         # VALVE3D uses valveRadius (not planar VALVE width/length). Explicit
@@ -282,6 +294,23 @@ def generate_control_network(
                 sinks=[sink_target],
                 layer_id=control_layer_id,
             )
+
+    # Device-detail truth: physical Cport count after mux/distribute expansion.
+    # synthesize / compile_lfr consumers should use controlPortCount, not LFR bit width alone.
+    n_cports = sum(
+        1
+        for c in scaffhold_device.device.components
+        if c.entity == "PORT" and str(c.ID).startswith("Cport_")
+    )
+    if n_cports == 0:
+        n_cports = created_cports
+    scaffhold_device.device.params.set_param("controlPortCount", n_cports)
+    if logical_bits > 0:
+        scaffhold_device.device.params.set_param("logicalControlBits", logical_bits)
+    if logical_bits > 0 and n_cports > logical_bits:
+        scaffhold_device.device.params.set_param(
+            "controlExpansion", "distribute_one_hot"
+        )
 
 
 def create_device_connection(
