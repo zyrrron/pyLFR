@@ -91,8 +91,16 @@ statement:
 	| literalassignstat
 	| moduleinstantiationstat;
 
+// Verilog-style optional parameters before the instance name:
+//   DIYcomponent #(length=10000, width=8000, height=2000) box(
+//       .up(a), .right(None), .down(b), .left(None));
+// Also accepts .length(10000) form. None = unconnected side (DIYcomponent).
 moduleinstantiationstat:
-	moduletype instancename '(' instanceioblock ')';
+	moduletype ('#' '(' moduleparamlist ')')? instancename '(' instanceioblock ')';
+
+moduleparamlist: moduleparam (',' moduleparam)*;
+
+moduleparam: ID '=' number | '.' ID '(' number ')';
 
 instanceioblock: orderedioblock | unorderedioblock;
 
@@ -101,7 +109,7 @@ orderedioblock: vectorvar (',' vectorvar)*;
 unorderedioblock:
 	explicitinstanceiomapping (',' explicitinstanceiomapping)*;
 
-explicitinstanceiomapping: '.' ID '(' variables ')';
+explicitinstanceiomapping: '.' ID '(' (variables | 'None') ')';
 
 instancename: ID;
 

@@ -1,6 +1,6 @@
-# Generated from ./lfrX.g4 by ANTLR 4.10.1
+# Generated from ./lfrX.g4 by ANTLR 4.13.2
 from antlr4 import *
-if __name__ is not None and "." in __name__:
+if "." in __name__:
     from .lfrXParser import lfrXParser
 else:
     from lfrXParser import lfrXParser
@@ -320,6 +320,24 @@ class lfrXListener(ParseTreeListener):
 
     # Exit a parse tree produced by lfrXParser#moduleinstantiationstat.
     def exitModuleinstantiationstat(self, ctx:lfrXParser.ModuleinstantiationstatContext):
+        pass
+
+
+    # Enter a parse tree produced by lfrXParser#moduleparamlist.
+    def enterModuleparamlist(self, ctx:lfrXParser.ModuleparamlistContext):
+        pass
+
+    # Exit a parse tree produced by lfrXParser#moduleparamlist.
+    def exitModuleparamlist(self, ctx:lfrXParser.ModuleparamlistContext):
+        pass
+
+
+    # Enter a parse tree produced by lfrXParser#moduleparam.
+    def enterModuleparam(self, ctx:lfrXParser.ModuleparamContext):
+        pass
+
+    # Exit a parse tree produced by lfrXParser#moduleparam.
+    def exitModuleparam(self, ctx:lfrXParser.ModuleparamContext):
         pass
 
 

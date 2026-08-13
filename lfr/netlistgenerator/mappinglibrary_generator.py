@@ -410,7 +410,7 @@ def generate_mars_library() -> MappingLibrary:
 def generate_dropx_library() -> MappingLibrary:
     library = MappingLibrary("dropx")
 
-    #BlackBox
+    #BlackBox (legacy 4-port) — keep registered so existing MINT still maps
     black_box_inputs: List[ConnectingOption] = []
     black_box_inputs.append(ConnectingOption(None, ["1"]))
     black_box_inputs.append(ConnectingOption(None, ["2"]))
@@ -433,6 +433,38 @@ def generate_dropx_library() -> MappingLibrary:
         None,
         None,
     )
+    library.add_operator_entry(black_box, InteractionType.TECHNOLOGY_PROCESS)
+
+    # DIYCOMPONENT — user black-box placeholder (length/width/height only).
+    # Terminals: 1=up, 2=right, 3=down, 4=left. Instance DiyTerminalConstraint
+    # selects which sides are used; defaults cover a simple up→down through-flow.
+    diy_inputs: List[ConnectingOption] = []
+    diy_inputs.append(ConnectingOption(None, ["1"]))
+    diy_inputs.append(ConnectingOption(None, ["2"]))
+    diy_inputs.append(ConnectingOption(None, ["3"]))
+    diy_inputs.append(ConnectingOption(None, ["4"]))
+
+    diy_outputs: List[ConnectingOption] = []
+    diy_outputs.append(ConnectingOption(None, ["1"]))
+    diy_outputs.append(ConnectingOption(None, ["2"]))
+    diy_outputs.append(ConnectingOption(None, ["3"]))
+    diy_outputs.append(ConnectingOption(None, ["4"]))
+
+    diy_component = Primitive(
+        "DIYCOMPONENT",
+        PrimitiveType.COMPONENT,
+        r"""{
+            v1: DIYCOMPONENT
+        }""",
+        False,
+        False,
+        diy_inputs,
+        diy_outputs,
+        None,
+        None,
+        None,
+    )
+    library.add_operator_entry(diy_component, InteractionType.TECHNOLOGY_PROCESS)
 
     #Chamber
     chamber_inputs: List[ConnectingOption] = []

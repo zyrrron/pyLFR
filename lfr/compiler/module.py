@@ -14,6 +14,7 @@ from lfr.fig.interaction import (
     Interaction,
     InteractionType,
 )
+from lfr.postprocessor.constraints import DiyTerminalConstraint, PerformanceConstraint
 from lfr.postprocessor.mapping import (
     FluidicOperatorMapping,
     NetworkMapping,
@@ -21,6 +22,15 @@ from lfr.postprocessor.mapping import (
     PumpMapping,
     StorageMapping,
 )
+
+# DIYcomponent sides → physical terminals (matches Fluigi/3DuF BlackBox)
+DIY_SIDE_TO_TERMINAL = {
+    "up": "1",
+    "right": "2",
+    "down": "3",
+    "left": "4",
+}
+DIY_SIDES = ("up", "right", "down", "left")
 
 
 class Module:
@@ -213,7 +223,11 @@ class Module:
         return ret
 
     def instantiate_module(
-        self, type_id: str, var_name: str, io_mapping: Dict[str, str]
+        self,
+        type_id: str,
+        var_name: str,
+        io_mapping: Dict[str, str],
+        instance_params: Optional[Dict[str, float]] = None,
     ) -> None:
         # Step 1 - Find the corresponding module from the imports
         module_to_import = None
@@ -321,7 +335,127 @@ class Module:
                         fig_node_rename_map, nodes_to_switch
                     )
 
+            # Override size / geometry constraints for this instance
+            # (e.g. DIYcomponent #(length=10000, width=8000, height=2000) box(...))
+            if instance_params:
+                from lfr.postprocessor.constraints import PerformanceConstraint
+
+                kept = [
+                    c
+                    for c in mappingtemplate_copy.constraints
+                    if getattr(c, "key", None) not in instance_params
+                ]
+                for key, value in instance_params.items():
+                    perf = PerformanceConstraint()
+                    perf.add_target_value(str(key), float(value))
+                    kept.append(perf)
+                mappingtemplate_copy._constraints = kept
+
             self.mappings.append(mappingtemplate_copy)
+
+    def _infer_diy_side_role(self, here_node: FIGNode) -> str:
+        """Infer whether a bound net feeds the DIY box (input) or leaves it (output)."""
+        if isinstance(here_node, IONode):
+            if here_node.type is IOType.FLOW_OUTPUT:
+                return "output"
+            if here_node.type is IOType.FLOW_INPUT:
+                return "input"
+        # Intermediate flow: already driven → into the box; else box drives it.
+        try:
+            preds = list(self.FIG.predecessors(here_node.ID))
+        except Exception:
+            preds = []
+        if preds:
+            return "input"
+        return "output"
+
+    def instantiate_diy_component(
+        self,
+        var_name: str,
+        side_bindings: Dict[str, Optional[str]],
+        imported_module: "Module",
+        instance_params: Optional[Dict[str, float]] = None,
+    ) -> None:
+        """Instantiate DIYcomponent with up/right/down/left (None = unused)."""
+        inputs = []  # (terminal, here_node)
+        outputs = []
+        for side in DIY_SIDES:
+            here_id = side_bindings.get(side)
+            if here_id is None:
+                continue
+            if side not in DIY_SIDE_TO_TERMINAL:
+                raise ValueError(f"Unknown DIYcomponent side: {side}")
+            here_node = self.FIG.get_fignode(here_id)
+            if here_node is None:
+                raise ValueError(
+                    f"DIYcomponent side .{side} bound to unknown net `{here_id}`"
+                )
+            role = self._infer_diy_side_role(here_node)
+            term = DIY_SIDE_TO_TERMINAL[side]
+            if role == "input":
+                inputs.append((term, here_node))
+            else:
+                outputs.append((term, here_node))
+
+        if not inputs or not outputs:
+            raise ValueError(
+                "DIYcomponent requires at least one connected input-side net and "
+                "one output-side net (use None for unused sides)"
+            )
+
+        seed = inputs[0][1]
+        proc = self.add_fluid_custom_interaction(
+            seed, "~", InteractionType.TECHNOLOGY_PROCESS
+        )
+        proc.operator = "~"
+        # Extra inputs into the same process (no MIX stage)
+        for _term, node in inputs[1:]:
+            self.FIG.connect_fignodes(node, proc)
+        for _term, node in outputs:
+            self.FIG.connect_fignodes(proc, node)
+
+        input_map = {node.ID: term for term, node in inputs}
+        output_map = {node.ID: term for term, node in outputs}
+
+        # Attach explicit DIYCOMPONENT mapping (+ size overrides) to this process
+        if imported_module.mappings:
+            for mappingtemplate in imported_module.mappings:
+                mappingtemplate_copy = copy.deepcopy(mappingtemplate)
+                for mapping_instance in mappingtemplate_copy.instances:
+                    if isinstance(mapping_instance, FluidicOperatorMapping):
+                        mapping_instance.node = proc
+                        mapping_instance.operator = "~"
+                kept = list(mappingtemplate_copy.constraints)
+                if instance_params:
+                    kept = [
+                        c
+                        for c in kept
+                        if getattr(c, "key", None) not in instance_params
+                    ]
+                    for key, value in instance_params.items():
+                        perf = PerformanceConstraint()
+                        perf.add_target_value(str(key), float(value))
+                        kept.append(perf)
+                kept.append(DiyTerminalConstraint(input_map, output_map))
+                mappingtemplate_copy._constraints = kept
+                if mappingtemplate_copy.technology_string is None:
+                    mappingtemplate_copy.technology_string = "DIYCOMPONENT"
+                self.mappings.append(mappingtemplate_copy)
+        else:
+            mt = NodeMappingTemplate()
+            mt.technology_string = "DIYCOMPONENT"
+            opmap = FluidicOperatorMapping()
+            opmap.node = proc
+            opmap.operator = "~"
+            mt.instances.append(opmap)
+            constraints = [DiyTerminalConstraint(input_map, output_map)]
+            if instance_params:
+                for key, value in instance_params.items():
+                    perf = PerformanceConstraint()
+                    perf.add_target_value(str(key), float(value))
+                    constraints.append(perf)
+            mt._constraints = constraints
+            self.mappings.append(mt)
 
     def __switch_fignodes_list(self, rename_map, nodes_to_switch):
         there_node_ids = [n.id for n in nodes_to_switch]

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from parchmint import Component
 
@@ -143,6 +143,19 @@ class MaterialConstraint(Constraint):
     def set_material(self, identifier: str, material_type: str) -> None:
         self._identifier = identifier
         self._material_type = material_type
+
+
+class DiyTerminalConstraint(Constraint):
+    """Maps neighbor FIG node IDs to DIYCOMPONENT side terminals (1=up…4=left)."""
+
+    def __init__(
+        self,
+        input_map: Optional[Dict[str, str]] = None,
+        output_map: Optional[Dict[str, str]] = None,
+    ) -> None:
+        super().__init__()
+        self.input_map: Dict[str, str] = dict(input_map or {})
+        self.output_map: Dict[str, str] = dict(output_map or {})
 
 
 class ConstraintList:

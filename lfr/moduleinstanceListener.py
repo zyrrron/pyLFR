@@ -1,9 +1,8 @@
-from os import error
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 from lfr.antlrgen.lfr.lfrXParser import lfrXParser
 from lfr.compiler.lfrerror import ErrorType, LFRError
-from lfr.compiler.module import Module
+from lfr.compiler.module import DIY_SIDES, Module
 from lfr.distBlockListener import DistBlockListener
 
 
@@ -13,6 +12,11 @@ class ModuleInstanceListener(DistBlockListener):
         self._module_to_import: Optional[Module] = None
         # There Ref -> Here Ref
         self._io_mapping: Dict[str, str] = {}
+        # Optional Verilog-style #(length=…, width=…) instance parameters
+        self._instance_params: Dict[str, float] = {}
+        # DIYcomponent: up/right/down/left → here net id or None
+        self._diy_side_bindings: Optional[Dict[str, Optional[str]]] = None
+        self._diy_sides_seen: Set[str] = set()
 
     def enterModuleinstantiationstat(
         self, ctx: lfrXParser.ModuleinstantiationstatContext
@@ -32,8 +36,16 @@ class ModuleInstanceListener(DistBlockListener):
                     ErrorType.MODULE_NOT_FOUND, "Could find type {}".format(type_id)
                 )
             )
+            self._module_to_import = None
+            self._diy_side_bindings = None
             return
         self._io_mapping = {}
+        self._instance_params = {}
+        self._diy_sides_seen = set()
+        if module_to_import.name == "DIYcomponent":
+            self._diy_side_bindings = {side: None for side in DIY_SIDES}
+        else:
+            self._diy_side_bindings = None
         self.currentModule.add_new_import(module_to_import)
 
         # Save the reference in the class
@@ -49,7 +61,44 @@ class ModuleInstanceListener(DistBlockListener):
         type_id = ctx.moduletype().getText()
         io_mapping = self._io_mapping
         var_name = ctx.instancename().getText()
-        self.currentModule.instantiate_module(type_id, var_name, io_mapping)
+
+        # Parse optional #(length=10000, width=8000, height=2000)
+        instance_params: Dict[str, float] = {}
+        param_list = ctx.moduleparamlist()
+        if param_list is not None:
+            for param_ctx in param_list.moduleparam():
+                key = param_ctx.ID().getText()
+                value = float(param_ctx.number().getText())
+                instance_params[key] = value
+
+        if (
+            type_id == "DIYcomponent"
+            and self._diy_side_bindings is not None
+            and self._module_to_import is not None
+        ):
+            missing = [s for s in DIY_SIDES if s not in self._diy_sides_seen]
+            if missing:
+                self.compilingErrors.append(
+                    LFRError(
+                        ErrorType.MODULE_IO_NOT_FOUND,
+                        "DIYcomponent `{}` must list all sides up/right/down/left "
+                        "(use None for unused); missing: {}".format(
+                            var_name, ", ".join(missing)
+                        ),
+                    )
+                )
+                return
+            self.currentModule.instantiate_diy_component(
+                var_name,
+                self._diy_side_bindings,
+                self._module_to_import,
+                instance_params=instance_params or None,
+            )
+            return
+
+        self.currentModule.instantiate_module(
+            type_id, var_name, io_mapping, instance_params=instance_params or None
+        )
 
     def exitOrderedioblock(self, ctx: lfrXParser.OrderedioblockContext):
         num_variables = len(ctx.vectorvar())
@@ -74,24 +123,45 @@ class ModuleInstanceListener(DistBlockListener):
             for j in range(len(there_vector_ref)):
                 self._io_mapping[there_vector_ref[j].ID] = here_vector_ref[j].ID
 
-    # def exitUnorderedioblock(self, ctx: lfrXParser.UnorderedioblockContext):
-    #     num_variables = len(ctx.explicitinstanceiomapping())
-    #     variables = []
-    #     for i in range(num_variables):
-    #         variables.insert(0, self.stack.pop())
-
-    #     module_io_labels = []
-    #     for explicitmapping in ctx.explicitinstanceiomapping():
-    #         module_io_labels.append(explicitmapping.ID().getText())
-
     def exitExplicitinstanceiomapping(
         self, ctx: lfrXParser.ExplicitinstanceiomappingContext
     ):
+        # enterModuleinstantiationstat may have failed (MODULE_NOT_FOUND);
+        # skip IO binding rather than crashing the walk.
         if self._module_to_import is None:
-            raise error("No module to import found in the listener store")
+            return
+
+        label = ctx.ID().getText()
+
+        # DIYcomponent directional ports: .up(net) / .right(None) / …
+        if self._diy_side_bindings is not None:
+            if label not in DIY_SIDES:
+                self.compilingErrors.append(
+                    LFRError(
+                        ErrorType.MODULE_IO_NOT_FOUND,
+                        "DIYcomponent ports are up/right/down/left, not `{}`".format(
+                            label
+                        ),
+                    )
+                )
+                return
+            self._diy_sides_seen.add(label)
+            if ctx.variables() is None:
+                self._diy_side_bindings[label] = None
+                return
+            variable = self.stack.pop()
+            if len(variable) != 1:
+                self.compilingErrors.append(
+                    LFRError(
+                        ErrorType.MODULE_SIGNAL_BINDING_MISMATCH,
+                        "DIYcomponent side `{}` expects a single net".format(label),
+                    )
+                )
+                return
+            self._diy_side_bindings[label] = variable[0].ID
+            return
 
         variable = self.stack.pop()
-        label = ctx.ID().getText()
 
         # Check if label exists in module_to_import
         if label not in [item.id for item in self._module_to_import.get_all_io()]:

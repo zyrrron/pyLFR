@@ -1,4 +1,4 @@
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import networkx as nx
 from parchmint import Target
@@ -10,7 +10,7 @@ from lfr.netlistgenerator.constructiongraph.constructiongraph import Constructio
 from lfr.netlistgenerator.mappinglibrary import MappingLibrary
 from lfr.netlistgenerator.namegenerator import NameGenerator
 from lfr.netlistgenerator.primitive import PrimitiveType, ProceduralPrimitive
-from lfr.postprocessor.constraints import MaterialConstraint
+from lfr.postprocessor.constraints import DiyTerminalConstraint, MaterialConstraint
 
 
 def generate_device(
@@ -90,9 +90,17 @@ def generate_device(
         output_options = source_cn.output_options.copy()
         input_options = target_cn.input_options.copy()
 
-        # Pop and make a connection between the output and the input
-        source_option = output_options.pop()
-        target_option = input_options.pop()
+        # DIYcomponent: pick side terminals from DiyTerminalConstraint when present
+        source_option = _diy_connecting_option(
+            source_cn, target_cn, as_input=False
+        )
+        target_option = _diy_connecting_option(
+            target_cn, source_cn, as_input=True
+        )
+        if source_option is None:
+            source_option = output_options.pop()
+        if target_option is None:
+            target_option = input_options.pop()
 
         #Source option exists here
         #print(source_option.component_port)
@@ -128,6 +136,29 @@ def generate_device(
     return cn_component_mapping
 
 
+def _diy_constraint(cn) -> Optional[DiyTerminalConstraint]:
+    for constraint in getattr(cn, "constraints", []) or []:
+        if isinstance(constraint, DiyTerminalConstraint):
+            return constraint
+    return None
+
+
+def _diy_connecting_option(diy_cn, neighbor_cn, as_input: bool):
+    """Resolve DIY side terminal for an edge via neighbor FIG node IDs."""
+    diy = _diy_constraint(diy_cn)
+    if diy is None:
+        return None
+    try:
+        neighbor_ids = {_fig_id_from_node(n) for n in neighbor_cn.fig_subgraph.nodes}
+    except Exception:
+        return None
+    mapping = diy.input_map if as_input else diy.output_map
+    for fig_id, terminal in mapping.items():
+        if fig_id in neighbor_ids:
+            return ConnectingOption(None, [terminal])
+    return None
+
+
 def _apply_constraints_to_components(constraints, components) -> None:
     """Apply LFR directive constraints as component params metadata."""
     if not constraints or not components:
@@ -136,6 +167,8 @@ def _apply_constraints_to_components(constraints, components) -> None:
     for component in components:
         params = component.params.data
         for constraint in constraints:
+            if isinstance(constraint, DiyTerminalConstraint):
+                continue
             if isinstance(constraint, MaterialConstraint):
                 material_type = constraint.material_type
                 if material_type is not None:

@@ -58,9 +58,13 @@ def serialize_netlist(output_path: Path, mint_device: MINTDevice) -> None:
     # Generate the JSON file from the pyparchmint device
     json_data = mint_device.to_parchmint()
     json_string = json.dumps(json_data)
-    if "BLACK BOX" in json_string:
-        print("JSON not generated due to custom component")
-        return
+    # DIYCOMPONENT / sized BLACK BOX are first-class placeholders with real
+    # length/width/height — still emit JSON. Only unsized legacy BLACK BOX
+    # stubs without dimensions are blocked.
+    if "BLACK BOX" in json_string and "DIYCOMPONENT" not in json_string:
+        if "length=" not in json_string and '"length"' not in json_string:
+            print("JSON not generated due to unsized custom BLACK BOX component")
+            return
     file_path = output_path.joinpath(f"{mint_device.device.name}_fromLFR.json")
     json_file = open(file_path, "wt")
     json_file.write(json_string)
@@ -75,18 +79,20 @@ def print_netlist(output_path: Path, mint_device: MINTDevice) -> None:
     # accidentally alter token boundaries needed by strict MINT parsing.
     minttext = mint_device.to_MINT()
 
-    if "BLACK BOX" in minttext:
+    def modify_unsized_placeholder(match):
+        # Only inject INSERT markers when the component has no size params yet.
+        head = match.group(1)
+        if re.search(r"\b(length|width)\s*=", head):
+            return match.group(0)
+        return f"{head} length=[INSERT LENGTH] width=[INSERT WIDTH];"
+
+    if "BLACK BOX" in minttext and "length=" not in minttext:
         minttext = "# Please add default length and width to blackbox component\n" + minttext
+    minttext = re.sub(r"(BLACK BOX\s+\S+)\s*;", modify_unsized_placeholder, minttext)
 
-    def modify_black_box(match):
-        return f"{match.group(1)} length=[INSERT LENGTH] width=[INSERT WIDTH];"
-
-    minttext = re.sub(r"(BLACK BOX\s+\S+)\s*;", modify_black_box, minttext)
-
-    if "REACTION CHAMBER" in minttext:
+    if "REACTION CHAMBER" in minttext and "length=" not in minttext:
         minttext = "# Please add default length and width to reaction chamber component\n" + minttext
-
-    minttext = re.sub(r"(REACTION CHAMBER\s+\S+)\s*;", modify_black_box, minttext)
+    minttext = re.sub(r"(REACTION CHAMBER\s+\S+)\s*;", modify_unsized_placeholder, minttext)
 
 
     mint_name = f"{mint_device.device.name}_fromLFR.mint"

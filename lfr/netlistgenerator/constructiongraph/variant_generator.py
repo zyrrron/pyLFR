@@ -15,7 +15,8 @@ from lfr.netlistgenerator.gen_strategies.genstrategy import GenStrategy
 from lfr.netlistgenerator.mappinglibrary import MappingLibrary, MatchPatternEntry
 from lfr.netlistgenerator.namegenerator import NameGenerator
 from lfr.postprocessor.mapping import NodeMappingTemplate
-from lfr.postprocessor.constraints import Constraint
+from lfr.netlistgenerator.connectingoption import ConnectingOption
+from lfr.postprocessor.constraints import Constraint, DiyTerminalConstraint
 
 
 def generate_match_variants(
@@ -164,6 +165,18 @@ def generate_match_variants(
             node.constraints = [
                 copy.deepcopy(c) for c in explicit_constraints_by_cover[fig_nodes_set]
             ]
+            # DIYcomponent: size ConnectingOption lists to the used side terminals
+            for constraint in node.constraints:
+                if isinstance(constraint, DiyTerminalConstraint):
+                    node._input_options = [
+                        ConnectingOption(None, [term])
+                        for term in constraint.input_map.values()
+                    ]
+                    node._output_options = [
+                        ConnectingOption(None, [term])
+                        for term in constraint.output_map.values()
+                    ]
+                    break
 
         # Check if Variant Tree has a saved divergence for this node, we do a new
         # divergence branch and create a new variant.

@@ -1,6 +1,6 @@
-# Generated from ./lfrX.g4 by ANTLR 4.10.1
+# Generated from ./lfrX.g4 by ANTLR 4.13.2
 from antlr4 import *
-if __name__ is not None and "." in __name__:
+if "." in __name__:
     from .lfrXParser import lfrXParser
 else:
     from lfrXParser import lfrXParser
@@ -181,6 +181,16 @@ class lfrXVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by lfrXParser#moduleinstantiationstat.
     def visitModuleinstantiationstat(self, ctx:lfrXParser.ModuleinstantiationstatContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by lfrXParser#moduleparamlist.
+    def visitModuleparamlist(self, ctx:lfrXParser.ModuleparamlistContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by lfrXParser#moduleparam.
+    def visitModuleparam(self, ctx:lfrXParser.ModuleparamContext):
         return self.visitChildren(ctx)
 
 

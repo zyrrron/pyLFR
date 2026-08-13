@@ -232,6 +232,35 @@ pipelines keep warn-and-skip semantics; set **`FLUIGI_STRICT_COMPONENTS=1`**
 to require every entity to resolve while still using only the default
 directory.
 
+### Built-in `DIYcomponent` black box (call like a function)
+
+Import the module and instantiate it with Verilog-style size parameters plus
+four clockwise sides (`up` / `right` / `down` / `left`). Use `None` for unused
+sides. Do **not** put `#MAP "DIYCOMPONENT" "~"` in the parent module — that
+would collide with MIXER/`~` mapping. The `~` map stays inside
+`DIYcomponent.lfr`. Flow direction is inferred from the bound nets (no
+finput/foutput labels on the sides).
+
+```lfr
+`import "library/DIYcomponent.lfr"
+
+module my_chip(finput in1, foutput out1);
+    DIYcomponent #(length=10000, width=8000, height=2000) box(
+        .up(in1),
+        .right(None),
+        .down(out1),
+        .left(None)
+    );
+endmodule
+```
+
+Terminals: up=1, right=2, down=3, left=4. Fluigi sizes the box from
+`length` / `width` / `height` (µm) only (no internal geometry). In 3DuF, DXF
+export builds a rectangular enclosure whose depth is
+`max(component height) + 1 mm` so you can swap in a detailed CAD part later
+(Fusion 360, etc.). See `default-modules/DIYcomponent.lfr` and
+`Quick_Examples/diy_component_demo.lfr`.
+
 ### Demo
 
 A minimal, runnable example lives in
