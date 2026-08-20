@@ -1,10 +1,11 @@
 from typing import Dict, List, Optional, Set, Tuple
 
 import networkx as nx
-from parchmint import Target
+from parchmint import Params, Target
 from parchmint.connection import Connection
 from pymint.mintdevice import MINTDevice
 
+from lfr import parameters as lfr_parameters
 from lfr.netlistgenerator.connectingoption import ConnectingOption
 from lfr.netlistgenerator.constructiongraph.constructiongraph import ConstructionGraph
 from lfr.netlistgenerator.mappinglibrary import MappingLibrary
@@ -159,6 +160,19 @@ def _diy_connecting_option(diy_cn, neighbor_cn, as_input: bool):
     return None
 
 
+# 3DuF / MINT camelCase keys that LFR would otherwise lowercase.
+_CANONICAL_PARAM_KEYS = {
+    "componentspacing": "componentSpacing",
+}
+
+
+def _canonical_param_key(key: str) -> str:
+    mapped = _CANONICAL_PARAM_KEYS.get(key.lower())
+    if mapped:
+        return mapped
+    return key.lower()
+
+
 def _apply_constraints_to_components(constraints, components) -> None:
     """Apply LFR directive constraints as component params metadata."""
     if not constraints or not components:
@@ -178,7 +192,7 @@ def _apply_constraints_to_components(constraints, components) -> None:
             key = constraint.key
             if key == "":
                 continue
-            key_norm = key.lower()
+            key_norm = _canonical_param_key(key)
             target = constraint.get_target_value()
             min_value = constraint.get_min_value()
             max_value = constraint.get_max_value()
@@ -294,7 +308,7 @@ def generate_control_network(
 
         # Add valve on this flow connection (on control layer).
         # VALVE3D uses valveRadius (not planar VALVE width/length). Explicit
-        # componentSpacing avoids fluigi's global default (9000 µm) being injected
+        # componentSpacing avoids a missing-param fallback being injected
         # for every component when serializing to *_fromLFR.mint / JSON.
         if not any(v.ID == valve_id for v in scaffhold_device.device.valves):
             scaffhold_device.create_valve(
@@ -304,7 +318,10 @@ def generate_control_network(
                     "position": [-1, -1],
                     "controlPort": cport_name,
                     "componentSpacing": 1000,
-                    "valveRadius": 400,
+                    "valveRadius": 1200,
+                    "gap": 600,
+                    "width": 2400,
+                    "length": 2400,
                     "height": 250,
                 },
                 layer_ids=[control_layer_id],
@@ -321,8 +338,11 @@ def generate_control_network(
             sink_target = Target(component_id=valve_id, port="1")
             scaffhold_device.create_mint_connection(
                 name=ctrl_channel_name,
-                technology="CHANNEL",
-                params={"position": [-1, -1]},
+                technology=lfr_parameters.DEFAULT_CONNECTION_ENTITY,
+                params={
+                    "position": [-1, -1],
+                    "crossSection": lfr_parameters.DEFAULT_CONNECTION_CROSS_SECTION,
+                },
                 source=src_target,
                 sinks=[sink_target],
                 layer_id=control_layer_id,
@@ -359,14 +379,18 @@ def create_device_connection(
     # mapping library (this would need extra criteria that that will need evaulation
     # in the future (RAMA Extension))
     primitive = mapping_library.get_default_connection_entry()
-    # Step 2 - Create the connection in the device
-    connection_name = name_generator.generate_name(primitive.mint)
+    # Step 2 - Create the connection in the device.
+    # Keep instance names as channel_N even when the entity is ROUNDED CHANNEL.
+    connection_name = name_generator.generate_name("CHANNEL")
     connection = Connection(
         name=connection_name,
         ID=connection_name,
         entity=primitive.mint,
         source=source_target,
         sinks=[target_target],
+        params=Params(
+            {"crossSection": lfr_parameters.DEFAULT_CONNECTION_CROSS_SECTION}
+        ),
         layer=scaffhold_device.device.layers[
             0
         ],  # TODO - This will be replaced in the future when we introduce layer sharding

@@ -11,7 +11,12 @@ from pymint.mintdevice import MINTDevice
 from lfr import parameters
 
 
-def printgraph(graph: nx.Graph, filename: str, output_dir: Path = None) -> None:
+def printgraph(
+    graph: nx.Graph,
+    filename: str,
+    output_dir: Path = None,
+    write_dot: bool = True,
+) -> None:
     """Prints the graph in a .dot file and a .pdf file (if pygraphviz and dot are available).
     If CURRENT_MODULE_NAME is set, files go under OUTPUT_DIR/CURRENT_MODULE_NAME so each
     LFR benchmark has its own folder and files are not overwritten.
@@ -20,12 +25,17 @@ def printgraph(graph: nx.Graph, filename: str, output_dir: Path = None) -> None:
         graph (nx.Graph): graph we need to print
         filename (str): base name of the file (without .dot; .dot is appended here)
         output_dir (Path, optional): Output folder path. If None, uses parameters.OUTPUT_DIR and optional subdir by module name.
+        write_dot (bool): Keep the Graphviz .dot next to the PDF. Topology PDFs
+            set this False so only ``*_fromLFR_topology.pdf`` remains.
     """
     if output_dir is None:
         output_dir = Path(parameters.OUTPUT_DIR)
         if getattr(parameters, "CURRENT_MODULE_NAME", None):
             output_dir = output_dir / parameters.CURRENT_MODULE_NAME
             output_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
     graph_copy = graph.copy(as_view=False)
     dot_path = Path.joinpath(output_dir, f"{filename}.dot")
     pdf_path = Path.joinpath(output_dir, f"{filename}.pdf")
@@ -42,6 +52,11 @@ def printgraph(graph: nx.Graph, filename: str, output_dir: Path = None) -> None:
             capture_output=True,
             text=True,
         )
+        if not write_dot:
+            try:
+                dot_path.unlink()
+            except OSError:
+                pass
     except (ImportError, Exception):
         # pygraphviz or dot not available; skip FIG visualization
         pass

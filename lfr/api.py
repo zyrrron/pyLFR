@@ -225,6 +225,14 @@ def compile_lfr(
             raise ValueError()
         module_name = mapping_listener.currentModule.name
         parameters.CURRENT_MODULE_NAME = module_name
+        lfr_stem = Path(input_files[0]).stem if input_files else module_name
+        # Canonical topology PDF for every compile (not gated on --debug-graphs).
+        printgraph(
+            mapping_listener.currentModule.FIG,
+            f"{lfr_stem}_fromLFR_topology",
+            output_dir=Path(parameters.OUTPUT_DIR),
+            write_dot=False,
+        )
         unsized_devices = generate(mapping_listener.currentModule, library)
 
         if not unsized_devices:

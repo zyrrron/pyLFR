@@ -1,11 +1,24 @@
 from typing import Dict, List
 
+from lfr import parameters as lfr_parameters
 from lfr.fig.interaction import InteractionType
 from lfr.netlistgenerator.connectingoption import ConnectingOption
 from lfr.netlistgenerator.connection_primitive import ConnectionPrimitive
 from lfr.netlistgenerator.mappinglibrary import MappingLibrary
 from lfr.netlistgenerator.primitive import Primitive, PrimitiveType
 from lfr.netlistgenerator.procedural_component_algorithms.ytree import YTREE
+
+
+def _add_default_connection_primitives(library: MappingLibrary) -> None:
+    """Register the LFR default channel type, plus square CHANNEL as a fallback.
+
+    Square 3DuF CHANNEL rectangles leave a gap at 90° corners. The default is
+    ``ROUNDED CHANNEL`` (override with ``NEPTUNE_DEFAULT_CHANNEL=CHANNEL``).
+    """
+    default_connection = ConnectionPrimitive(lfr_parameters.DEFAULT_CONNECTION_ENTITY)
+    library.add_connection_entry(default_connection)
+    if lfr_parameters.DEFAULT_CONNECTION_ENTITY.upper() != "CHANNEL":
+        library.add_connection_entry(ConnectionPrimitive("CHANNEL"))
 
 
 def generate_mlsi_library() -> MappingLibrary:
@@ -153,6 +166,7 @@ def generate_mlsi_library() -> MappingLibrary:
     )
 
     library.add_entry(mux2)
+    _add_default_connection_primitives(library)
 
     return library
 
@@ -403,6 +417,7 @@ def generate_mars_library() -> MappingLibrary:
     )
 
     library.add_operator_entry(sorter, InteractionType.SIEVE)
+    _add_default_connection_primitives(library)
 
     return library
 
@@ -435,7 +450,7 @@ def generate_dropx_library() -> MappingLibrary:
     )
     library.add_operator_entry(black_box, InteractionType.TECHNOLOGY_PROCESS)
 
-    # DIYCOMPONENT — user black-box placeholder (length/width/height only).
+    # DIYCOMPONENT — user black-box placeholder (length/width/height/componentSpacing).
     # Terminals: 1=up, 2=right, 3=down, 4=left. Instance DiyTerminalConstraint
     # selects which sides are used; defaults cover a simple up→down through-flow.
     diy_inputs: List[ConnectingOption] = []
@@ -1069,9 +1084,7 @@ def generate_dropx_library() -> MappingLibrary:
 
     library.add_procedural_entry(ytree)
 
-    # Connections / Channels
-    connection_primitive = ConnectionPrimitive("CHANNEL")
-    library.add_connection_entry(connection_primitive)
+    _add_default_connection_primitives(library)
 
     return library
 

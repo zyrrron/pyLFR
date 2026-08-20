@@ -234,7 +234,7 @@ directory.
 
 ### Built-in `DIYcomponent` black box (call like a function)
 
-Import the module and instantiate it with Verilog-style size parameters plus
+Import the module and instantiate it with Verilog-style parameters plus
 four clockwise sides (`up` / `right` / `down` / `left`). Use `None` for unused
 sides. Do **not** put `#MAP "DIYCOMPONENT" "~"` in the parent module — that
 would collide with MIXER/`~` mapping. The `~` map stays inside
@@ -254,12 +254,32 @@ module my_chip(finput in1, foutput out1);
 endmodule
 ```
 
+Parameters (µm):
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `length` | 5000 | Bounding-box height (`y-span`) |
+| `width` | 5000 | Bounding-box width (`x-span`) |
+| `height` | 250 | Layer depth |
+| `componentSpacing` | **1000** | Keepout halo around the box. P&R keeps other components and channel bodies outside this band. |
+
+Override keepout on one instance:
+
+```lfr
+DIYcomponent #(length=10000, width=8000, height=2000, componentSpacing=3000) box(
+    .up(in1),
+    .right(None),
+    .down(out1),
+    .left(None)
+);
+```
+
 Terminals: up=1, right=2, down=3, left=4. Fluigi sizes the box from
-`length` / `width` / `height` (µm) only (no internal geometry). In 3DuF, DXF
-export builds a rectangular enclosure whose depth is
-`max(component height) + 1 mm` so you can swap in a detailed CAD part later
-(Fusion 360, etc.). See `default-modules/DIYcomponent.lfr` and
-`Quick_Examples/diy_component_demo.lfr`.
+`length` / `width` / `height` (µm); `componentSpacing` is layout keepout only
+(no internal geometry). In 3DuF, DXF export builds a rectangular enclosure
+whose depth is `max(component height) + 1 mm` so you can swap in a detailed
+CAD part later (Fusion 360, etc.). See `default-modules/DIYcomponent.lfr` and
+`Quick_Examples/library/DIYcomponent.lfr`.
 
 ### Demo
 

@@ -1,6 +1,6 @@
 // DIYcomponent — built-in black-box placeholder for user-designed parts.
 //
-// Call with size parameters (µm) and four clockwise sides. Unused sides = None:
+// Call with size / keepout parameters (µm) and four clockwise sides. Unused sides = None:
 //
 //   DIYcomponent #(length=10000, width=8000, height=2000) box(
 //       .up(inlet),
@@ -9,9 +9,13 @@
 //       .left(None)
 //   );
 //
+// Optional keepout halo around the box (same meaning as MINT componentSpacing).
+// Default is 1000 µm. Override per instance, for example:
+//   DIYcomponent #(length=10000, width=8000, height=2000, componentSpacing=3000) box(...);
+//
 // Sides map to physical terminals: up=1, right=2, down=3, left=4.
 // Do not label ports as finput/foutput — direction is inferred from the bound nets.
-// Neptune/Fluigi use length/width/height + terminals only (no internal geometry).
+// Neptune/Fluigi use length/width/height/componentSpacing + terminals only (no internal geometry).
 //
 // Import the module with a backtick-import of library/DIYcomponent.lfr first.
 module DIYcomponent(
@@ -22,6 +26,7 @@ module DIYcomponent(
     #CONSTRAIN "~" length = 5000
     #CONSTRAIN "~" width = 5000
     #CONSTRAIN "~" height = 250
+    #CONSTRAIN "~" componentSpacing = 1000
     // Seed assign so #MAP attaches; parent instances use instantiate_diy_component.
     assign _seed_out = ~up;
 endmodule

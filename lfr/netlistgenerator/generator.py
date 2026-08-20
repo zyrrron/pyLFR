@@ -56,10 +56,10 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
     # construction_graph = ConstructionGraph()
 
     # Step 1 - Simplify the Fluid Interaction Graphs
-    if getattr(parameters, "PRINT_DEBUG_GRAPHS", True):
+    if getattr(parameters, "PRINT_DEBUG_GRAPHS", False):
         printgraph(module.FIG, f"{module.name}_FIG")
     remove_passthrough_nodes(module.FIG)
-    if getattr(parameters, "PRINT_DEBUG_GRAPHS", True):
+    if getattr(parameters, "PRINT_DEBUG_GRAPHS", False):
         printgraph(module.FIG, f"{module.name}_FIG_simplified")
 
     # STEP 2 - Initialize the active strategy
@@ -118,7 +118,7 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
     )
 
     for index, variant in enumerate(variants, start=0):
-        if getattr(parameters, "PRINT_DEBUG_GRAPHS", True):
+        if getattr(parameters, "PRINT_DEBUG_GRAPHS", False):
             variant_filename = f"variant_{index}_construction.dot"
             variant.print_graph(variant_filename)
 

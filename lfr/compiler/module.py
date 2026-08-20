@@ -335,8 +335,8 @@ class Module:
                         fig_node_rename_map, nodes_to_switch
                     )
 
-            # Override size / geometry constraints for this instance
-            # (e.g. DIYcomponent #(length=10000, width=8000, height=2000) box(...))
+            # Override size / keepout constraints for this instance
+            # (e.g. DIYcomponent #(length=10000, width=8000, componentSpacing=3000) box(...))
             if instance_params:
                 from lfr.postprocessor.constraints import PerformanceConstraint
 

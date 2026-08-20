@@ -205,7 +205,7 @@ class ConstructionGraph(nx.DiGraph):
         """Prints the graph to a file under OUTPUT_DIR / CURRENT_MODULE_NAME (if set)
         so different LFR benchmarks do not overwrite the same .dot file.
         """
-        if not getattr(parameters, "PRINT_DEBUG_GRAPHS", True):
+        if not getattr(parameters, "PRINT_DEBUG_GRAPHS", False):
             return
         base = parameters.OUTPUT_DIR
         module_name = getattr(parameters, "CURRENT_MODULE_NAME", None)
