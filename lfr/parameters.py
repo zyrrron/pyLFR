@@ -35,3 +35,12 @@ def parse_default_connection_profile(raw: str) -> Tuple[str, int]:
 DEFAULT_CONNECTION_ENTITY, DEFAULT_CONNECTION_CROSS_SECTION = parse_default_connection_profile(
     os.getenv("NEPTUNE_DEFAULT_CHANNEL", "ROUNDED CHANNEL")
 )
+
+# VALVE3D library defaults (µm). FLOW and CONTROL channelWidth match gap
+# so pipes and the valve slit are the same width (square or rounded).
+DEFAULT_VALVE3D_RADIUS_UM = 1200
+DEFAULT_VALVE3D_GAP_UM = 600
+DEFAULT_VALVE3D_WIDTH_UM = 2400
+DEFAULT_VALVE3D_LENGTH_UM = 2400
+DEFAULT_CHANNEL_WIDTH_UM = DEFAULT_VALVE3D_GAP_UM
+DEFAULT_CONTROL_CHANNEL_WIDTH_UM = DEFAULT_CHANNEL_WIDTH_UM

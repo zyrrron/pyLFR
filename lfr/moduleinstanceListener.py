@@ -2,7 +2,7 @@ from typing import Dict, Optional, Set
 
 from lfr.antlrgen.lfr.lfrXParser import lfrXParser
 from lfr.compiler.lfrerror import ErrorType, LFRError
-from lfr.compiler.module import DIY_SIDES, Module
+from lfr.compiler.module import DROPLET_GENERATOR_PORTS, DIY_SIDES, Module
 from lfr.distBlockListener import DistBlockListener
 
 
@@ -91,6 +91,27 @@ class ModuleInstanceListener(DistBlockListener):
             self.currentModule.instantiate_diy_component(
                 var_name,
                 self._diy_side_bindings,
+                self._module_to_import,
+                instance_params=instance_params or None,
+            )
+            return
+
+        if type_id == "droplet_generator" and self._module_to_import is not None:
+            missing = [p for p in DROPLET_GENERATOR_PORTS if p not in io_mapping]
+            if missing:
+                self.compilingErrors.append(
+                    LFRError(
+                        ErrorType.MODULE_IO_NOT_FOUND,
+                        "droplet_generator `{}` requires oil_left, oil_right, "
+                        "aqueous, droplets; missing: {}".format(
+                            var_name, ", ".join(missing)
+                        ),
+                    )
+                )
+                return
+            self.currentModule.instantiate_droplet_generator(
+                var_name,
+                io_mapping,
                 self._module_to_import,
                 instance_params=instance_params or None,
             )

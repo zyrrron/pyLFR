@@ -1,8 +1,21 @@
+import pytest
+
 from tests.conftest import LIBRARY_PATH, TEST_DATA_FOLDER, TEST_OUTPATH
 
 from lfr import api
+from lfr.compiler.language.fluidexpression import FluidExpression
+from lfr.compiler.module import Module
 
 TEST_CASES_FOLDER = TEST_DATA_FOLDER.joinpath("Expressions")
+
+
+def test_unsupported_binary_and_raises():
+    # Binary `&` is Verilog bitwise AND, not a fluid operator. Silently
+    # returning the first operand used to disconnect droplet-generator graphs.
+    fe = FluidExpression(Module("t"))
+    with pytest.raises(Exception, match="Unsupported fluid operator"):
+        fe.process_expression(["oil", "aqueous"], ["&"])
+
 
 
 def test_expression1():

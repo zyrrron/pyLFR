@@ -32,6 +32,31 @@ DIY_SIDE_TO_TERMINAL = {
 }
 DIY_SIDES = ("up", "right", "down", "left")
 
+# NOZZLE DROPLET GENERATOR local ports (rotation 0, primitives-server coords):
+#   3-port junction on the left, 1-port outlet horn on the right:
+#
+#              1 (top of junction)
+#     4 ------[ junction ]========== 2  (single-port horn)
+#              3 (bottom of junction)
+#
+#   1 and 3 face each other → oil. 4 is the water channel of the 3-port
+#   part. 2 is the droplet outlet.
+#   JSON rotation 90 (locked) is the vertical flow-focusing pose used when
+#   mixers sit below the nozzle and the chamber sits above. This is a 180°
+#   flip of the 270 pose so 3DuF's side oil holes face left/right:
+#              droplets (2, horn up)
+#   oil_left (3) --[ nozzle ]-- oil_right (1)
+#              aqueous (4)
+DROPLET_GENERATOR_PORT_TO_TERMINAL = {
+    "aqueous": "4",
+    "oil_left": "3",
+    "oil_right": "1",
+    "droplets": "2",
+}
+DROPLET_GENERATOR_INPUT_PORTS = ("oil_left", "oil_right", "aqueous")
+DROPLET_GENERATOR_OUTPUT_PORTS = ("droplets",)
+DROPLET_GENERATOR_PORTS = DROPLET_GENERATOR_INPUT_PORTS + DROPLET_GENERATOR_OUTPUT_PORTS
+
 
 class Module:
     def __init__(self, name):
@@ -444,6 +469,95 @@ class Module:
         else:
             mt = NodeMappingTemplate()
             mt.technology_string = "DIYCOMPONENT"
+            opmap = FluidicOperatorMapping()
+            opmap.node = proc
+            opmap.operator = "~"
+            mt.instances.append(opmap)
+            constraints = [DiyTerminalConstraint(input_map, output_map)]
+            if instance_params:
+                for key, value in instance_params.items():
+                    perf = PerformanceConstraint()
+                    perf.add_target_value(str(key), float(value))
+                    constraints.append(perf)
+            mt._constraints = constraints
+            self.mappings.append(mt)
+
+    def instantiate_droplet_generator(
+        self,
+        var_name: str,
+        io_mapping: Dict[str, str],
+        imported_module: "Module",
+        instance_params: Optional[Dict[str, float]] = None,
+    ) -> None:
+        """Bind oil_left / oil_right / aqueous / droplets onto one 4-port nozzle."""
+        missing = [p for p in DROPLET_GENERATOR_PORTS if p not in io_mapping]
+        if missing:
+            raise ValueError(
+                "droplet_generator `{}` requires oil_left, oil_right, aqueous, "
+                "droplets; missing: {}".format(var_name, ", ".join(missing))
+            )
+
+        inputs = []
+        for port in DROPLET_GENERATOR_INPUT_PORTS:
+            here_node = self.FIG.get_fignode(io_mapping[port])
+            if here_node is None:
+                raise ValueError(
+                    "droplet_generator port `{}` bound to unknown net `{}`".format(
+                        port, io_mapping[port]
+                    )
+                )
+            inputs.append((DROPLET_GENERATOR_PORT_TO_TERMINAL[port], here_node))
+
+        outputs = []
+        for port in DROPLET_GENERATOR_OUTPUT_PORTS:
+            here_node = self.FIG.get_fignode(io_mapping[port])
+            if here_node is None:
+                raise ValueError(
+                    "droplet_generator port `{}` bound to unknown net `{}`".format(
+                        port, io_mapping[port]
+                    )
+                )
+            outputs.append((DROPLET_GENERATOR_PORT_TO_TERMINAL[port], here_node))
+
+        seed = inputs[0][1]
+        proc = self.add_fluid_custom_interaction(
+            seed, "~", InteractionType.TECHNOLOGY_PROCESS
+        )
+        proc.operator = "~"
+        for _term, node in inputs[1:]:
+            self.FIG.connect_fignodes(node, proc)
+        for _term, node in outputs:
+            self.FIG.connect_fignodes(proc, node)
+
+        input_map = {node.ID: term for term, node in inputs}
+        output_map = {node.ID: term for term, node in outputs}
+
+        if imported_module.mappings:
+            for mappingtemplate in imported_module.mappings:
+                mappingtemplate_copy = copy.deepcopy(mappingtemplate)
+                for mapping_instance in mappingtemplate_copy.instances:
+                    if isinstance(mapping_instance, FluidicOperatorMapping):
+                        mapping_instance.node = proc
+                        mapping_instance.operator = "~"
+                kept = list(mappingtemplate_copy.constraints)
+                if instance_params:
+                    kept = [
+                        c
+                        for c in kept
+                        if getattr(c, "key", None) not in instance_params
+                    ]
+                    for key, value in instance_params.items():
+                        perf = PerformanceConstraint()
+                        perf.add_target_value(str(key), float(value))
+                        kept.append(perf)
+                kept.append(DiyTerminalConstraint(input_map, output_map))
+                mappingtemplate_copy._constraints = kept
+                if mappingtemplate_copy.technology_string is None:
+                    mappingtemplate_copy.technology_string = "NOZZLE DROPLET GENERATOR"
+                self.mappings.append(mappingtemplate_copy)
+        else:
+            mt = NodeMappingTemplate()
+            mt.technology_string = "NOZZLE DROPLET GENERATOR"
             opmap = FluidicOperatorMapping()
             opmap.node = proc
             opmap.operator = "~"

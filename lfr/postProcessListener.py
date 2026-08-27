@@ -150,6 +150,14 @@ class PostProcessListener(ModuleInstanceListener):
                 mapping_instance = StorageMapping()
                 mapping_instance.node = node
                 mapping.instances.append(mapping_instance)
+            # Operator #MAP is flushed on the next assignstat. A storage-only
+            # module (chamber + distribute, no assign) never hits that path,
+            # so register the template here.
+            if (
+                self.currentModule is not None
+                and mapping not in self.currentModule.mappings
+            ):
+                self.currentModule.mappings.append(mapping)
         return super().exitStoragestat(ctx)
 
     def enterPumpvarstat(self, ctx: lfrXParser.PumpvarstatContext):

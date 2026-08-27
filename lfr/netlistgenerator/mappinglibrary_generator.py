@@ -507,6 +507,31 @@ def generate_dropx_library() -> MappingLibrary:
 
     library.add_io_entry(chamber)
 
+    # VIA — single-port junction (Nature test_device vias / LFR #MAP "VIA" "storage").
+    # All connections share terminal 1 so a storage node can be a star hub.
+    via_inputs: List[ConnectingOption] = []
+    via_outputs: List[ConnectingOption] = []
+    for _ in range(12):
+        via_inputs.append(ConnectingOption(None, ["1"]))
+        via_outputs.append(ConnectingOption(None, ["1"]))
+
+    via = Primitive(
+        "VIA",
+        PrimitiveType.COMPONENT,
+        r"""{
+            v1: VIA
+        }""",
+        False,
+        False,
+        via_inputs,
+        via_outputs,
+        None,
+        None,
+        None,
+    )
+    library.add_io_entry(via)
+    library.add_storage_entry(via)
+
     # PORT
     port_inputs: List[ConnectingOption] = []
     port_inputs.append(ConnectingOption(None, ["1"]))

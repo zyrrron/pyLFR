@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Set, Tuple
 
 import networkx as nx
-from parchmint import Params, Target
+from parchmint import Component, Params, Target
 from parchmint.connection import Connection
 from pymint.mintdevice import MINTDevice
 
@@ -55,6 +55,23 @@ def generate_device(
             cn_component_mapping[node_id] = [component.ID]
 
         elif cn.primitive.type is PrimitiveType.NETLIST:
+            # Explicit 4-port nozzle (oil_left/oil_right/aqueous/droplets): emit
+            # the primitive only. The default dropletgenerator.mint netlist would
+            # add extra synthesized oil PORTs that duplicate the parent finputs.
+            if _diy_constraint(cn) is not None:
+                name = name_generator.generate_name(cn.primitive.mint)
+                layer = scaffhold_device.device.layers[0]
+                component = Component(
+                    name=name,
+                    ID=name,
+                    entity=cn.primitive.mint,
+                    params=Params({}),
+                    layers=[layer],
+                )
+                scaffhold_device.device.add_component(component)
+                _apply_constraints_to_components(cn.constraints, [component])
+                cn_component_mapping[node_id] = [component.ID]
+                continue
             netlist = cn.primitive.get_default_netlist(cn.ID, name_generator)
             _apply_constraints_to_components(cn.constraints, list(netlist.components))
 
@@ -99,6 +116,10 @@ def generate_device(
             target_cn, source_cn, as_input=True
         )
         if source_option is None:
+            source_option = _chamber_connecting_option(source_cn, as_input=False)
+        if target_option is None:
+            target_option = _chamber_connecting_option(target_cn, as_input=True)
+        if source_option is None:
             source_option = output_options.pop()
         if target_option is None:
             target_option = input_options.pop()
@@ -137,6 +158,20 @@ def generate_device(
     return cn_component_mapping
 
 
+def _chamber_connecting_option(cn, as_input: bool):
+    """REACTION CHAMBER: top (1) in, bottom (3) out — vertical through-chamber."""
+    primitive = getattr(cn, "primitive", None)
+    mint = getattr(primitive, "mint", None)
+    if mint != "REACTION CHAMBER":
+        return None
+    options = cn.input_options if as_input else cn.output_options
+    preferred = "1" if as_input else "3"
+    for opt in options:
+        if preferred in (opt.component_port or []):
+            return opt
+    return None
+
+
 def _diy_constraint(cn) -> Optional[DiyTerminalConstraint]:
     for constraint in getattr(cn, "constraints", []) or []:
         if isinstance(constraint, DiyTerminalConstraint):
@@ -163,6 +198,7 @@ def _diy_connecting_option(diy_cn, neighbor_cn, as_input: bool):
 # 3DuF / MINT camelCase keys that LFR would otherwise lowercase.
 _CANONICAL_PARAM_KEYS = {
     "componentspacing": "componentSpacing",
+    "rotation": "rotation",
 }
 
 
@@ -279,7 +315,7 @@ def generate_control_network(
                 logical_bits += 1
 
     created_cports = 0
-    for idx, ((fig_src, fig_tgt), valve_id, _ctrl_id) in enumerate(control_entries):
+    for idx, ((fig_src, fig_tgt), _st_valve_id, _ctrl_id) in enumerate(control_entries):
         src_comps = resolve_fig_id(fig_src)
         tgt_comps = resolve_fig_id(fig_tgt)
         conn = None
@@ -294,6 +330,10 @@ def generate_control_network(
                 break
         if conn is None:
             continue
+
+        # Each distribute block names its first valve valve_0. Number globally
+        # so two gated edges become valve_0 and valve_1, not one shared valve.
+        valve_id = "valve_{}".format(idx)
 
         # Add control-layer port first (so we can connect Ctrlchannel from it to valve)
         cport_name = "Cport_{}".format(idx)
@@ -318,10 +358,10 @@ def generate_control_network(
                     "position": [-1, -1],
                     "controlPort": cport_name,
                     "componentSpacing": 1000,
-                    "valveRadius": 1200,
-                    "gap": 600,
-                    "width": 2400,
-                    "length": 2400,
+                    "valveRadius": lfr_parameters.DEFAULT_VALVE3D_RADIUS_UM,
+                    "gap": lfr_parameters.DEFAULT_VALVE3D_GAP_UM,
+                    "width": lfr_parameters.DEFAULT_VALVE3D_WIDTH_UM,
+                    "length": lfr_parameters.DEFAULT_VALVE3D_LENGTH_UM,
                     "height": 250,
                 },
                 layer_ids=[control_layer_id],
@@ -342,6 +382,7 @@ def generate_control_network(
                 params={
                     "position": [-1, -1],
                     "crossSection": lfr_parameters.DEFAULT_CONNECTION_CROSS_SECTION,
+                    "channelWidth": lfr_parameters.DEFAULT_CONTROL_CHANNEL_WIDTH_UM,
                 },
                 source=src_target,
                 sinks=[sink_target],

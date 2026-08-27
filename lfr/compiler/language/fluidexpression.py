@@ -122,7 +122,22 @@ class FluidExpression:
                     except ValueError:
                         index = -1
 
-        # At the end of the expression, there should only be 1 expression left
+        # Unknown binary ops (e.g. `&`) used to be ignored, returning termlist[0]
+        # and silently dropping the rest of the expression. Fail instead.
+        if operatorlist:
+            raise Exception(
+                "Unsupported fluid operator(s): {}. "
+                "Binary assign supports +, -, *, /, %; unary ~ and & require "
+                "`assign out = &in` (not `a & b`). "
+                "NOZZLE DROPLET GENERATOR maps onto % "
+                "(e.g. assign droplets = aqueous % 50)."
+                .format(", ".join(repr(op) for op in operatorlist))
+            )
+        if len(termlist) != 1:
+            raise Exception(
+                "Fluid expression did not reduce to a single term "
+                "({} terms remain)".format(len(termlist))
+            )
         return termlist[0]
 
     def process_unary_operation(self, term, operator):
