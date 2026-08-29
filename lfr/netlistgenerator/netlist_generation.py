@@ -301,7 +301,7 @@ def generate_control_network(
         scaffhold_device.device.get_layer(control_layer_id)
     except KeyError:
         scaffhold_device.create_mint_layer(
-            control_layer_id, "control", 1, MINTLayerType.CONTROL
+            control_layer_id, "control", 0, MINTLayerType.CONTROL
         )
 
     # Logical control bit width from distribute state-table headers (e.g. 3-bit mux select).
