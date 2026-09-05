@@ -199,6 +199,13 @@ def _diy_connecting_option(diy_cn, neighbor_cn, as_input: bool):
 _CANONICAL_PARAM_KEYS = {
     "componentspacing": "componentSpacing",
     "rotation": "rotation",
+    "channelwidth": "channelWidth",
+    "edgebend": "edgeBend",
+    "edgebend1": "edgeBend1",
+    "edgebend2": "edgeBend2",
+    "bendspacing": "bendSpacing",
+    "bendlength": "bendLength",
+    "numberofbends": "numberOfBends",
 }
 
 
