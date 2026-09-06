@@ -482,6 +482,63 @@ class Module:
             mt._constraints = constraints
             self.mappings.append(mt)
 
+    def ensure_standalone_droplet_generator_terminals(self) -> None:
+        """Wire oil_left/oil_right onto a #MAP NOZZLE seed assign.
+
+        Library ``droplet_generator`` bodies use ``assign droplets = ~aqueous``
+        so #MAP can attach. That leaves oil IO orphaned and lets
+        ``dropletgenerator.mint`` inject two extra oil PORTs. Parent instances
+        already go through ``instantiate_droplet_generator``; this closes the
+        same gap when the module is synthesized standalone.
+        """
+        io_ids = {io.id for io in self.io}
+        if not set(DROPLET_GENERATOR_PORTS).issubset(io_ids):
+            return
+
+        nozzle_maps = [
+            m
+            for m in self.mappings
+            if m.technology_string
+            and "NOZZLE DROPLET GENERATOR"
+            in str(m.technology_string).upper().replace("_", " ")
+        ]
+        if not nozzle_maps:
+            return
+
+        proc = None
+        target_map = None
+        for mapping in nozzle_maps:
+            for constraint in mapping.constraints or []:
+                if isinstance(constraint, DiyTerminalConstraint):
+                    return  # already fully bound (import path)
+            for inst in mapping.instances:
+                if isinstance(inst, FluidicOperatorMapping) and inst.node is not None:
+                    proc = inst.node
+                    target_map = mapping
+                    break
+            if proc is not None:
+                break
+        if proc is None or target_map is None:
+            return
+
+        input_map: Dict[str, str] = {}
+        output_map: Dict[str, str] = {}
+        for port in DROPLET_GENERATOR_INPUT_PORTS:
+            node = self.FIG.get_fignode(port)
+            if node is None:
+                return
+            if port != "aqueous" and self.FIG.out_degree(port) == 0:
+                self.FIG.connect_fignodes(node, proc)
+            input_map[node.ID] = DROPLET_GENERATOR_PORT_TO_TERMINAL[port]
+        for port in DROPLET_GENERATOR_OUTPUT_PORTS:
+            node = self.FIG.get_fignode(port)
+            if node is None:
+                return
+            output_map[node.ID] = DROPLET_GENERATOR_PORT_TO_TERMINAL[port]
+
+        target_map._constraints = list(target_map.constraints or [])
+        target_map._constraints.append(DiyTerminalConstraint(input_map, output_map))
+
     def instantiate_droplet_generator(
         self,
         var_name: str,
