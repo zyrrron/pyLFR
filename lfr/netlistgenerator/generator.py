@@ -23,6 +23,7 @@ from lfr.netlistgenerator.namegenerator import NameGenerator
 from lfr.netlistgenerator.netlist_generation import (
     generate_control_network,
     generate_device,
+    rename_flow_io_ports_to_declaration_order,
 )
 from lfr.netlistgenerator.primitive import ProceduralPrimitive
 from lfr.postprocessor.mapping import (
@@ -175,6 +176,15 @@ def generate(module: Module, library: MappingLibrary) -> List[MINTDevice]:
             scaffhold_device=cur_device,
             name_generator=name_generator,
             mapping_library=library,
+        )
+        # PORT nodes are inserted from a set, so port_N follows hash order.
+        # Rename flow IO ports to finput/foutput declaration order before
+        # control pads are attached.
+        rename_flow_io_ports_to_declaration_order(
+            module,
+            variant,
+            cn_component_mapping,
+            cur_device,
         )
         # STEP 8 - Generate the control logic network (valves + Cport on CONTROL layer)
         generate_control_network(

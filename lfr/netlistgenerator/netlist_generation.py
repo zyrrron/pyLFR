@@ -7,6 +7,7 @@ from parchmint.connection import Connection
 from pymint.mintdevice import MINTDevice
 
 from lfr import parameters as lfr_parameters
+from lfr.fig.fignode import IOType
 from lfr.netlistgenerator.connectingoption import ConnectingOption
 from lfr.netlistgenerator.constructiongraph.constructiongraph import ConstructionGraph
 from lfr.netlistgenerator.mappinglibrary import MappingLibrary
@@ -198,6 +199,143 @@ def generate_device(
 
     _strip_channel_type_keys_from_components(scaffhold_device.device)
     return cn_component_mapping
+
+
+def _declared_flow_io_ids(module) -> List[str]:
+    """Flow IO fig ids in module declaration order (finput bits, then foutput)."""
+    ordered: List[str] = []
+    seen = set()
+    for module_io in getattr(module, "io", []) or []:
+        if getattr(module_io, "type", None) is IOType.CONTROL:
+            continue
+        try:
+            items = list(module_io.vector_ref)
+        except Exception:
+            continue
+        for node in items:
+            fig_id = str(getattr(node, "ID", node))
+            if not fig_id or fig_id in seen:
+                continue
+            seen.add(fig_id)
+            ordered.append(fig_id)
+    return ordered
+
+
+def _apply_component_id_map(
+    scaffhold_device: MINTDevice,
+    cn_component_mapping: Dict[str, List[str]],
+    id_map: Dict[str, str],
+) -> None:
+    """Rename component ids on the device, its graph, and connection endpoints."""
+    if not id_map:
+        return
+    nx.relabel_nodes(scaffhold_device.device.graph, id_map, copy=False)
+    for component in scaffhold_device.device.components:
+        new_id = id_map.get(component.ID)
+        if new_id is None:
+            continue
+        component.ID = new_id
+        component.name = new_id
+        params = getattr(component, "params", None)
+        data = getattr(params, "data", None)
+        if isinstance(data, dict) and "ID" in data:
+            data["ID"] = new_id
+    for connection in scaffhold_device.device.connections:
+        source = connection.source
+        if source is not None and source.component in id_map:
+            source.component = id_map[source.component]
+        for sink in connection.sinks or []:
+            if sink.component in id_map:
+                sink.component = id_map[sink.component]
+    for cn_id, component_ids in list(cn_component_mapping.items()):
+        cn_component_mapping[cn_id] = [
+            id_map.get(component_id, component_id) for component_id in component_ids
+        ]
+
+
+def rename_flow_io_ports_to_declaration_order(
+    module,
+    construction_graph: ConstructionGraph,
+    cn_component_mapping: Dict[str, List[str]],
+    scaffhold_device: MINTDevice,
+) -> None:
+    """Name flow PORTs ``port_1``, ``port_2``, ... in LFR IO declaration order.
+
+    Graph matching inserts PORT construction nodes from a set, so DFS names
+    them ``port_N`` in hash order. ``in[0]`` is then not ``port_1`` even though
+    the MUX leaf terminal was chosen from the FIG id. Reassign only the PORT
+    instance name; the channel still ends on the same leaf.
+    """
+    ordered_ids = _declared_flow_io_ids(module)
+    if not ordered_ids:
+        return
+    wanted = set(ordered_ids)
+    fig_to_component: Dict[str, str] = {}
+    for cn in construction_graph.construction_nodes:
+        primitive = getattr(cn, "primitive", None)
+        mint = str(getattr(primitive, "mint", "") or "").upper()
+        if mint != "PORT":
+            continue
+        cover = set(getattr(cn, "fig_cover", None) or [])
+        if len(cover) != 1:
+            continue
+        fig_id = next(iter(cover))
+        if fig_id not in wanted or fig_id in fig_to_component:
+            continue
+        component_ids = cn_component_mapping.get(cn.ID) or []
+        if not component_ids:
+            continue
+        fig_to_component[fig_id] = component_ids[0]
+
+    io_component_ids = [
+        fig_to_component[fig_id]
+        for fig_id in ordered_ids
+        if fig_id in fig_to_component
+    ]
+    if len(io_component_ids) < 2:
+        return
+    if len(set(io_component_ids)) != len(io_component_ids):
+        return
+
+    final: Dict[str, str] = {
+        old_id: f"port_{index + 1}" for index, old_id in enumerate(io_component_ids)
+    }
+    if all(old_id == new_id for old_id, new_id in final.items()):
+        return
+
+    occupied = {component.ID for component in scaffhold_device.device.components}
+    dest_names = set(final.values())
+    blocker_ids = sorted(
+        component_id
+        for component_id in occupied
+        if component_id in dest_names and component_id not in final
+    )
+    used = set(dest_names)
+    used.update(occupied - set(final) - set(blocker_ids))
+    next_index = 1
+    for old_id in blocker_ids:
+        while f"port_{next_index}" in used:
+            next_index += 1
+        name = f"port_{next_index}"
+        final[old_id] = name
+        used.add(name)
+        next_index += 1
+
+    temp_map = {
+        old_id: f"__flow_io_tmp_{index}" for index, old_id in enumerate(final)
+    }
+    _apply_component_id_map(scaffhold_device, cn_component_mapping, temp_map)
+    final_map = {temp_map[old_id]: new_id for old_id, new_id in final.items()}
+    _apply_component_id_map(scaffhold_device, cn_component_mapping, final_map)
+
+    rank = {new_id: index for index, new_id in enumerate(final_map.values())}
+    components = scaffhold_device.device.components
+    positions = [index for index, component in enumerate(components) if component.ID in rank]
+    ordered_components = sorted(
+        (components[index] for index in positions), key=lambda component: rank[component.ID]
+    )
+    for position, component in zip(positions, ordered_components):
+        components[position] = component
 
 
 def _cn_fig_ids(cn) -> Set[str]:
